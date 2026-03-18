@@ -18,5 +18,6 @@ public class Habit
     public AppUser? User { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ArchivedAt { get; set; }
+}
 
    
