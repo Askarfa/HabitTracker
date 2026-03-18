@@ -12,9 +12,9 @@ public class Habit
 
     public string? Description { get; set; }
 
-    public int Frequency { get; set; } // 0 = Daily, 1 = Weekly, 2 = Monthly
+    public int Frequency { get; set; }
 
-    public int Type { get; set; } // 0 = Binary, 1 = Numeric, 2 = Text
+    public int Type { get; set; }
 
     public int TargetStreak { get; set; }
 
