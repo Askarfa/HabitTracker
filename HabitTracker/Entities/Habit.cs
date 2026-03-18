@@ -17,8 +17,11 @@ public class Habit
     public AppUser? User { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ArchivedAt { get; set; }
+
+    // Навигационные свойства
     public ICollection<HabitLog> Logs { get; set; } = new List<HabitLog>();
     public ICollection<Goal> Goals { get; set; } = new List<Goal>();
+    public ICollection<PredictionModel> Predictions { get; set; } = new List<PredictionModel>();
 }
 
 public enum HabitFrequency { Daily, Weekly, Custom }

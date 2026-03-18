@@ -11,5 +11,6 @@ public class AppUser : IdentityUser
 
     public ICollection<Habit> Habits { get; set; } = new List<Habit>();
     public ICollection<HabitLog> HabitLogs { get; set; } = new List<HabitLog>();
+    public ICollection<Goal> Goals { get; set; } = new List<Goal>();
     public ICollection<PredictionModel> Predictions { get; set; } = new List<PredictionModel>();
 }
