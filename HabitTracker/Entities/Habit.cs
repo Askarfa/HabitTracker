@@ -16,9 +16,7 @@ public class Habit
     public TimeSpan? ReminderTime { get; set; }
     public string UserId { get; set; } = string.Empty;
     public AppUser? User { get; set; }
-    public ICollection<HabitLog> Logs { get; set; } = new List<HabitLog>();
-    public ICollection<Goal> Goals { get; set; } = new List<Goal>();
-    public ICollection<PredictionModel> Predictions { get; set; } = new List<PredictionModel>();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ArchivedAt { get; set; }
-}
+
+   
