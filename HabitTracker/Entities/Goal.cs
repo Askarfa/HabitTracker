@@ -51,7 +51,7 @@ public class Goal
     /// <summary>
     /// Идентификатор владельца цели
     /// </summary>
-    public string UserId { get; set; } = string.Empty;
+    public string? UserId { get; set; }
 
     /// <summary>
     /// Навигационное свойство: владелец цели

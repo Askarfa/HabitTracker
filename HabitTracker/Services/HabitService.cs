@@ -1,5 +1,5 @@
-﻿using HabitTracker.Entities;
-using HabitTracker.Repositories;
+﻿using HabitTracker.Repositories;
+using HabitTracker.Entities;
 
 namespace HabitTracker.Services;
 
@@ -81,9 +81,6 @@ public class HabitService : Service<Habit>, IHabitService
 
         if (habit.Name.Length > 100)
             throw new ArgumentException("Название не должно превышать 100 символов", nameof(habit.Name));
-
-        if (string.IsNullOrWhiteSpace(habit.UserId))
-            throw new ArgumentException("UserId обязателен", nameof(habit.UserId));
 
         if (habit.TargetStreak < 0)
             throw new ArgumentException("TargetStreak не может быть отрицательным", nameof(habit.TargetStreak));

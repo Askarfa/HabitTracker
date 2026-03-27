@@ -26,7 +26,7 @@ public class HabitLog
     /// <summary>
     /// Идентификатор пользователя, создавшего запись
     /// </summary>
-    public string UserId { get; set; } = string.Empty;
+    public string? UserId { get; set; }
 
     /// <summary>
     /// Навигационное свойство: пользователь

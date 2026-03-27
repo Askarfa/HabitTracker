@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HabitTracker.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260318085226_InitialCreate")]
+    [Migration("20260327101430_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -105,37 +105,37 @@ namespace HabitTracker.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal>("CurrentValue")
-                        .HasColumnType("numeric");
-
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("HabitId")
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("IsAchieved")
+                    b.Property<bool>("IsCompleted")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal>("TargetValue")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("Title")
+                    b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
+                    b.Property<DateTime>("TargetDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
                     b.HasIndex("HabitId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Goals");
                 });
@@ -172,7 +172,6 @@ namespace HabitTracker.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("UserId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -231,43 +230,29 @@ namespace HabitTracker.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<double>("Accuracy")
-                        .HasColumnType("double precision");
+                    b.Property<string>("AppUserId")
+                        .HasColumnType("text");
 
-                    b.Property<int>("AvgStreakLength")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("ForecastDate")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Factors")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("HabitId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("MissedDaysLastMonth")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ModelType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("PredictedCompletionProbability")
-                        .HasColumnType("double precision");
-
-                    b.Property<DateTime>("TrainedAt")
+                    b.Property<DateTime>("PredictedDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("WeeklyCompletionRate")
-                        .HasColumnType("double precision");
+                    b.Property<decimal>("SuccessProbability")
+                        .HasColumnType("numeric");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HabitId");
+                    b.HasIndex("AppUserId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("HabitId");
 
                     b.ToTable("PredictionModels");
                 });
@@ -412,7 +397,15 @@ namespace HabitTracker.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("HabitTracker.Entities.AppUser", "User")
+                        .WithMany("Goals")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Habit");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("HabitTracker.Entities.Habit", b =>
@@ -420,8 +413,7 @@ namespace HabitTracker.Migrations
                     b.HasOne("HabitTracker.Entities.AppUser", "User")
                         .WithMany("Habits")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("User");
                 });
@@ -447,21 +439,17 @@ namespace HabitTracker.Migrations
 
             modelBuilder.Entity("HabitTracker.Entities.PredictionModel", b =>
                 {
+                    b.HasOne("HabitTracker.Entities.AppUser", null)
+                        .WithMany("Predictions")
+                        .HasForeignKey("AppUserId");
+
                     b.HasOne("HabitTracker.Entities.Habit", "Habit")
                         .WithMany("Predictions")
                         .HasForeignKey("HabitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("HabitTracker.Entities.AppUser", "User")
-                        .WithMany("Predictions")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Habit");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -517,6 +505,8 @@ namespace HabitTracker.Migrations
 
             modelBuilder.Entity("HabitTracker.Entities.AppUser", b =>
                 {
+                    b.Navigation("Goals");
+
                     b.Navigation("HabitLogs");
 
                     b.Navigation("Habits");
