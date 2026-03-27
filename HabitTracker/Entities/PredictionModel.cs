@@ -1,22 +1,45 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HabitTracker.Entities;
 
+/// <summary>
+/// Модель для прогнозирования успеха выполнения привычки
+/// </summary>
 public class PredictionModel
 {
+    /// <summary>
+    /// Уникальный идентификатор прогноза
+    /// </summary>
     [Key]
     public Guid Id { get; set; }
-    public string UserId { get; set; } = string.Empty;
-    public AppUser? User { get; set; }
+
+    /// <summary>
+    /// Идентификатор привычки для прогнозирования
+    /// </summary>
     public Guid HabitId { get; set; }
+
+    /// <summary>
+    /// Навигационное свойство: связанная привычка
+    /// </summary>
     public Habit? Habit { get; set; }
-    public string ModelType { get; set; } = "LinearRegression";
-    public DateTime TrainedAt { get; set; } = DateTime.UtcNow;
-    public double Accuracy { get; set; }
-    public DateTime ForecastDate { get; set; }
-    public double PredictedCompletionProbability { get; set; }
-    public int AvgStreakLength { get; set; }
-    public double WeeklyCompletionRate { get; set; }
-    public int MissedDaysLastMonth { get; set; }
+
+    /// <summary>
+    /// Дата, на которую сделан прогноз
+    /// </summary>
+    public DateTime PredictedDate { get; set; }
+
+    /// <summary>
+    /// Вероятность успеха выполнения привычки (0-100%)
+    /// </summary>
+    public decimal SuccessProbability { get; set; }
+
+    /// <summary>
+    /// Факторы, влияющие на прогноз
+    /// </summary>
+    public string? Factors { get; set; }
+
+    /// <summary>
+    /// Дата и время создания прогноза
+    /// </summary>
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
