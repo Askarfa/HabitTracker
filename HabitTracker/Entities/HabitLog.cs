@@ -49,22 +49,7 @@ public class HabitLog
     public string? Note { get; set; }
 
     /// <summary>
-    /// Числовое значение (для числовых привычек)
-    /// </summary>
-    public decimal? Value { get; set; }
-
-    /// <summary>
     /// Дата и время создания записи в логе
     /// </summary>
     public DateTime LoggedAt { get; set; } = DateTime.UtcNow;
-
-    /// <summary>
-    /// Настроение пользователя в момент выполнения
-    /// </summary>
-    public string? Mood { get; set; }
-
-    /// <summary>
-    /// Уровень энергии пользователя (1-10)
-    /// </summary>
-    public int? EnergyLevel { get; set; }
 }

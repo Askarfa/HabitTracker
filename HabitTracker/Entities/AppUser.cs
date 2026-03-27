@@ -11,17 +11,14 @@ public class AppUser : IdentityUser
     /// <summary>
     /// Отображаемое имя пользователя
     /// </summary>
-    public string DisplayName { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// Дата и время регистрации пользователя
     /// </summary>
     public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>
-    /// Часовой пояс пользователя (по умолчанию UTC)
-    /// </summary>
-    public string? TimeZone { get; set; } = "UTC";
+    // добавить логин, хеш пароля
 
     /// <summary>
     /// Список привычек пользователя

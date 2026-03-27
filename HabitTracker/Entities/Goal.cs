@@ -31,7 +31,7 @@ public class Goal
     /// <summary>
     /// Флаг: достигнута ли цель
     /// </summary>
-    public bool IsCompleted { get; set; }
+    public bool IsCompleted { get; set; } = false;
 
     /// <summary>
     /// Дата и время завершения цели

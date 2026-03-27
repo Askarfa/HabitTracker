@@ -31,19 +31,9 @@ public class Habit
     public int Frequency { get; set; }
 
     /// <summary>
-    /// Тип привычки: 0=Бинарная, 1=Числовая, 2=Текстовая
-    /// </summary>
-    public int Type { get; set; }
-
-    /// <summary>
     /// Целевое количество дней для серии (streak)
     /// </summary>
     public int TargetStreak { get; set; }
-
-    /// <summary>
-    /// Время напоминания о выполнении привычки
-    /// </summary>
-    public string? ReminderTime { get; set; }
 
     /// <summary>
     /// Идентификатор владельца привычки (может быть null)
