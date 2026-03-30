@@ -18,7 +18,10 @@ public class AppUser : IdentityUser
     /// </summary>
     public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
 
-    // добавить логин, хеш пароля
+    /// <summary>
+    /// Дата последнего входа
+    /// </summary>
+    public DateTime? LastLoginAt { get; set; }
 
     /// <summary>
     /// Список привычек пользователя

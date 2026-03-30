@@ -1,0 +1,62 @@
+﻿@page "/register"
+@using HabitTracker.Client.Services
+@inject AuthService Auth
+@inject NavigationManager Navigation
+
+<h3>Регистрация</h3>
+
+<EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
+    <DataAnnotationsValidator />
+
+    <div class="mb-3">
+        <label>Email</label>
+        <InputText @bind-Value="registerModel.Email" class="form-control" />
+    </div>
+
+    <div class="mb-3">
+        <label>Пароль</label>
+        <InputText @bind-Value="registerModel.Password" type="password" class="form-control" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+</EditForm>
+
+<p><a href="/login">Уже есть аккаунт? Войти</a></p>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3">@errorMessage</div>
+}
+
+@if (success)
+{
+    <div class="alert alert-success mt-3">Регистрация успешна! Переход к входу...</div>
+}
+
+@code {
+    private RegisterModel registerModel = new();
+    private string? errorMessage;
+    private bool success;
+
+    private async Task HandleRegister()
+    {
+        var success = await Auth.Register(registerModel.Email, registerModel.Password);
+
+        if (success)
+        {
+            this.success = true;
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login");
+        }
+        else
+        {
+            errorMessage = "Ошибка регистрации. Возможно, email уже занят.";
+        }
+    }
+
+    public class RegisterModel
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

@@ -1,5 +1,6 @@
 ﻿using HabitTracker.Services;
 using HabitTracker.Entities;
+using System.Security.Claims;
 
 namespace HabitTracker.Endpoints;
 
@@ -15,6 +16,7 @@ public static class HabitLogEndpoints
         group.MapGet("/user/{userId}", GetLogsByUserId);
         group.MapPost("/", CreateHabitLog);
         group.MapPost("/log", LogHabit);
+        group.MapPost("/{habitId:guid}/complete", MarkHabitAsCompleted); // ✅ НОВЫЙ!
         group.MapPut("/{id:guid}", UpdateHabitLog);
         group.MapDelete("/{id:guid}", DeleteHabitLog);
     }
@@ -49,10 +51,24 @@ public static class HabitLogEndpoints
         return Results.Created($"/api/habit-logs/{created.Id}", created);
     }
 
-    private static async Task<IResult> LogHabit(Guid habitId, string userId, bool completed, string? notes, IHabitLogService service)
+    private static async Task<IResult> LogHabit(HabitLogRequest request, IHabitLogService service)
     {
-        var log = await service.LogHabitAsync(habitId, userId, completed, notes);
+        var log = await service.LogHabitAsync(request.HabitId, request.UserId, request.Completed, request.Notes);
         return Results.Created($"/api/habit-logs/{log.Id}", log);
+    }
+
+    private static async Task<IResult> MarkHabitAsCompleted(
+        Guid habitId,
+        IHabitLogService habitLogService,
+        ClaimsPrincipal user)
+    {
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(userId))
+            return Results.Unauthorized();
+
+        var log = await habitLogService.LogHabitAsync(habitId, userId, true, null);
+        return Results.Ok(log);
     }
 
     private static async Task<IResult> UpdateHabitLog(Guid id, HabitLog log, IHabitLogService service)
@@ -73,4 +89,12 @@ public static class HabitLogEndpoints
         await service.DeleteAsync(id);
         return Results.NoContent();
     }
+}
+
+public class HabitLogRequest
+{
+    public Guid HabitId { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public bool Completed { get; set; }
+    public string? Notes { get; set; }
 }

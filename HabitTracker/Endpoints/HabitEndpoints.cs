@@ -1,5 +1,6 @@
-﻿using HabitTracker.Services;
+﻿using System.Security.Claims;
 using HabitTracker.Entities;
+using HabitTracker.Services;
 
 namespace HabitTracker.Endpoints;
 
@@ -9,54 +10,117 @@ public static class HabitEndpoints
     {
         var group = app.MapGroup("/api/habits").WithTags("Habits");
 
-        group.MapGet("/", GetAllHabits);
-        group.MapGet("/{id:guid}", GetHabitById);
-        group.MapGet("/user/{userId}", GetHabitsByUserId);
-        group.MapPost("/", CreateHabit);
-        group.MapPut("/{id:guid}", UpdateHabit);
-        group.MapDelete("/{id:guid}", DeleteHabit);
+        group.MapGet("/", async (
+            IHabitService service,
+            IHabitLogService logService,
+            ClaimsPrincipal user) =>
+        {
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
+
+            var habits = await service.GetByUserIdAsync(userId);
+
+            foreach (var habit in habits)
+            {
+                var logs = await logService.GetByHabitIdAsync(habit.Id);
+                var today = DateTime.UtcNow.Date;
+
+                habit.IsCompletedToday = logs.Any(l =>
+                    l.Date.Date == today && l.IsCompleted);
+
+                habit.CurrentStreak = CalculateCurrentStreak(logs);
+                habit.LastCompletedAt = logs
+                    .Where(l => l.IsCompleted)
+                    .OrderByDescending(l => l.Date)
+                    .FirstOrDefault()?.Date;
+            }
+
+            return Results.Ok(habits);
+        })
+        .RequireAuthorization()
+        .WithName("GetHabits");
+
+        group.MapGet("/{id}", async (Guid id, IHabitService service) =>
+        {
+            var habit = await service.GetByIdAsync(id);
+            return habit is null ? Results.NotFound() : Results.Ok(habit);
+        })
+        .WithName("GetHabitById");
+
+        group.MapPost("/", async (Habit habit, IHabitService service, ClaimsPrincipal user) =>
+        {
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                habit.UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            }
+
+            var created = await service.CreateAsync(habit);
+            return Results.Created($"/api/habits/{created.Id}", created);
+        })
+        .RequireAuthorization()
+        .WithName("CreateHabit");
+
+        group.MapPut("/{id}", async (Guid id, Habit updatedHabit, IHabitService service) =>
+        {
+            var habit = await service.GetByIdAsync(id);
+            if (habit is null)
+                return Results.NotFound();
+
+            habit.Name = updatedHabit.Name;
+            habit.Description = updatedHabit.Description;
+            habit.Frequency = updatedHabit.Frequency;
+            habit.TargetStreak = updatedHabit.TargetStreak;
+
+            await service.UpdateAsync(habit);
+            return Results.NoContent();
+        })
+        .RequireAuthorization()
+        .WithName("UpdateHabit");
+
+        group.MapDelete("/{id}", async (Guid id, IHabitService service) =>
+        {
+            var habit = await service.GetByIdAsync(id);
+            if (habit is null)
+                return Results.NotFound();
+
+            await service.DeleteAsync(id);
+            return Results.NoContent();
+        })
+        .RequireAuthorization()
+        .WithName("DeleteHabit");
     }
 
-    private static async Task<IResult> GetAllHabits(IHabitService service)
+    private static int CalculateCurrentStreak(IEnumerable<HabitLog> logs)
     {
-        var habits = await service.GetAllAsync();
-        return Results.Ok(habits);
-    }
+        var completedLogs = logs
+            .Where(l => l.IsCompleted)
+            .OrderByDescending(l => l.Date.Date)
+            .ToList();
 
-    private static async Task<IResult> GetHabitById(Guid id, IHabitService service)
-    {
-        var habit = await service.GetByIdAsync(id);
-        return habit is null ? Results.NotFound() : Results.Ok(habit);
-    }
+        if (!completedLogs.Any()) return 0;
 
-    private static async Task<IResult> GetHabitsByUserId(string userId, IHabitService service)
-    {
-        var habits = await service.GetByUserIdAsync(userId);
-        return Results.Ok(habits);
-    }
+        int streak = 0;
+        var currentDate = DateTime.UtcNow.Date;
 
-    private static async Task<IResult> CreateHabit(Habit habit, IHabitService service)
-    {
-        var created = await service.CreateAsync(habit);
-        return Results.Created($"/api/habits/{created.Id}", created);
-    }
+        foreach (var log in completedLogs)
+        {
+            if (log.Date.Date == currentDate)
+            {
+                streak++;
+                currentDate = currentDate.AddDays(-1);
+            }
+            else if (log.Date.Date == currentDate)
+            {
+                currentDate = currentDate.AddDays(-1);
+            }
+            else
+            {
+                break;
+            }
+        }
 
-    private static async Task<IResult> UpdateHabit(Guid id, Habit habit, IHabitService service)
-    {
-        if (!await service.ExistsAsync(id))
-            return Results.NotFound();
-
-        habit.Id = id;
-        await service.UpdateAsync(habit);
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> DeleteHabit(Guid id, IHabitService service)
-    {
-        if (!await service.ExistsAsync(id))
-            return Results.NotFound();
-
-        await service.DeleteAsync(id);
-        return Results.NoContent();
+        return streak;
     }
 }

@@ -18,11 +18,14 @@ public class Habit
     /// <summary>
     /// Название привычки (обязательное поле)
     /// </summary>
+    [Required]
+    [StringLength(200)]
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// Описание привычки
     /// </summary>
+    [StringLength(500)]
     public string? Description { get; set; }
 
     /// <summary>
@@ -36,33 +39,34 @@ public class Habit
     public int TargetStreak { get; set; }
 
     /// <summary>
-    /// Идентификатор владельца привычки (может быть null)
+    /// Идентификатор владельца привычки
     /// </summary>
+    [Required]
     public string? UserId { get; set; }
 
     /// <summary>
     /// Навигационное свойство: владелец привычки
     /// </summary>
     [JsonIgnore]
-    public AppUser? User { get; set; }
+    public virtual AppUser? User { get; set; }
 
     /// <summary>
     /// История выполнений привычки (логи)
     /// </summary>
     [JsonIgnore]
-    public ICollection<HabitLog> Logs { get; set; } = new List<HabitLog>();
+    public virtual ICollection<HabitLog> Logs { get; set; } = new List<HabitLog>();
 
     /// <summary>
     /// Цели, связанные с этой привычкой
     /// </summary>
     [JsonIgnore]
-    public ICollection<Goal> Goals { get; set; } = new List<Goal>();
+    public virtual ICollection<Goal> Goals { get; set; } = new List<Goal>();
 
     /// <summary>
     /// Модели прогнозирования для этой привычки
     /// </summary>
     [JsonIgnore]
-    public ICollection<PredictionModel> Predictions { get; set; } = new List<PredictionModel>();
+    public virtual ICollection<PredictionModel> Predictions { get; set; } = new List<PredictionModel>();
 
     /// <summary>
     /// Дата и время создания привычки
@@ -73,4 +77,25 @@ public class Habit
     /// Дата и время архивации привычки (если заархивирована)
     /// </summary>
     public DateTime? ArchivedAt { get; set; }
+
+    /// <summary>
+    /// Текущая серия дней выполнения подряд (streak)
+    /// </summary>
+    public int CurrentStreak { get; set; }
+
+    /// <summary>
+    /// Лучшая серия дней выполнения за всё время
+    /// </summary>
+    public int BestStreak { get; set; }
+
+    /// <summary>
+    /// Дата и время последнего выполнения привычки
+    /// </summary>
+    public DateTime? LastCompletedAt { get; set; }
+
+    /// <summary>
+    /// Выполнена ли привычка сегодня (не сохраняется в БД)
+    /// </summary>
+    [NotMapped]
+    public bool IsCompletedToday { get; set; }
 }

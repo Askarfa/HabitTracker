@@ -1,0 +1,83 @@
+﻿@page "/habits/create"
+@using HabitTracker.Client.Models
+@using HabitTracker.Client.Services
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AuthService Auth
+
+<h3>Новая привычка</h3>
+
+<div class="card">
+    <div class="card-body">
+        <EditForm Model="@habitModel" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Название *</label>
+                <InputText @bind-Value="habitModel.Name" class="form-control" placeholder="Например: Утренняя пробежка" />
+                <ValidationMessage For="@(() => habitModel.Name)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Описание</label>
+                <InputTextArea @bind-Value="habitModel.Description" class="form-control" rows="3" placeholder="Опишите вашу привычку..." />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Частота</label>
+                <InputSelect @bind-Value="habitModel.Frequency" class="form-select">
+                    <option value="0">Ежедневно</option>
+                    <option value="1">Еженедельно</option>
+                    <option value="2">Ежемесячно</option>
+                </InputSelect>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Цель (дней)</label>
+                <InputNumber @bind-Value="habitModel.TargetStreak" class="form-control" min="1" max="365" />
+                <small class="text-muted">Сколько дней подряд хотите выполнять?</small>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <span class="bi bi-check-circle"></span> Создать
+                </button>
+                <a href="/habits" class="btn btn-secondary">
+                    <span class="bi bi-x-circle"></span> Отмена
+                </a>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger mt-3">@errorMessage</div>
+}
+
+@code {
+    private HabitModel habitModel = new();
+    private string? errorMessage;
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/habits", habitModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/habits");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Ошибка: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Не удалось создать привычку: {ex.Message}";
+        }
+    }
+}
