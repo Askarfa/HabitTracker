@@ -1,78 +1,77 @@
-﻿@using HabitTracker.Client.Services
-@inject AuthService Auth
-@inject NavigationManager Navigation
-
-<div class="top-row ps-3 navbar navbar-dark">
+﻿<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">🎯 HabitTracker</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+        <a class="navbar-brand" href="">HabitTracker</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        📊 Главная
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="habits">
+                        🎯 Привычки
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="goals">
+                        🏆 Цели
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="stats">
+                        📈 Статистика
+                    </NavLink>
+                </li>
+            </ul>
+            <ul class="navbar-nav">
+                @if (authService.IsAuthenticated)
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            👤 @userName
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="profile">Профиль</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="logout" @onclick="Logout">Выйти</a></li>
+                        </ul>
+                    </li>
+                }
+                else
+                {
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="login">Вход</NavLink>
+                    </li>
+                    <li class="nav-item">
+                        <NavLink class="nav-link" href="register">Регистрация</NavLink>
+                    </li>
+                }
+            </ul>
+        </div>
     </div>
-</div>
-
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door"></span> Главная
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="habits">
-                <span class="bi bi-list-check"></span> Все привычки
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="habits/create">
-                <span class="bi bi-plus-circle"></span> Добавить привычку
-            </NavLink>
-        </div>
-        <hr class="my-2" />
-
-        @if (!Auth.IsAuthenticated)
-        {
-            <div class="nav-item px-3"><small class="text-muted">👋 Гость</small></div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="login">
-                    <span class="bi bi-box-arrow-in-right"></span> Вход
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="register">
-                    <span class="bi bi-person-plus"></span> Регистрация
-                </NavLink>
-            </div>
-        }
-        else
-        {
-            <div class="nav-item px-3"><small class="text-success">✅ Авторизован</small></div>
-            <div class="nav-item px-3">
-                <a class="nav-link" href="#" @onclick="HandleLogout">
-                    <span class="bi bi-box-arrow-right"></span> Выйти
-                </a>
-            </div>
-        }
-    </nav>
-</div>
+</nav>
 
 @code {
-    private bool collapseNavMenu = true;
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
-
-    private void HandleLogout()
-    {
-        Auth.Logout();
-        Navigation.NavigateTo("/", forceLoad: true);
-    }
-
+    [Inject] private AuthService authService { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    
+    private string userName = "";
+    
     protected override void OnInitialized()
     {
-        Auth.OnAuthStateChanged += StateHasChanged;
+        if (authService.IsAuthenticated)
+        {
+            userName = "Пользователь"; // Можно получить из токена
+        }
     }
-    public void Dispose()
+    
+    private async Task Logout()
     {
-        Auth.OnAuthStateChanged -= StateHasChanged;
+        authService.Logout();
+        Navigation.NavigateTo("/login");
     }
 }

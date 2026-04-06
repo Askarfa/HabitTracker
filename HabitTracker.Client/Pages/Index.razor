@@ -1,0 +1,244 @@
+﻿@page "/"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<PageTitle>Dashboard - HabitTracker</PageTitle>
+
+<div class="container-fluid py-4">
+    @if (!AuthService.IsAuthenticated)
+    {
+        <!-- Не авторизован -->
+        <div class="auth-container">
+            <div class="auth-card fade-in">
+                <h1 class="auth-title">Добро пожаловать в HabitTracker! 🎯</h1>
+                <p class="auth-subtitle">Отслеживайте привычки и достигайте целей</p>
+                
+                <div class="text-center">
+                    <a href="login" class="btn btn-primary btn-lg mb-3 w-100">
+                        🔐 Войти
+                    </a>
+                    <a href="register" class="btn btn-outline-primary btn-lg w-100">
+                        📝 Регистрация
+                    </a>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="card bg-light border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">✨ Возможности:</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">✅ Отслеживание привычек</li>
+                                <li class="mb-2">🏆 Постановка целей</li>
+                                <li class="mb-2">📊 Статистика прогресса</li>
+                                <li class="mb-2">🔥 Серии достижений</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Авторизован -->
+        <div class="fade-in">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h1 class="text-white mb-2">👋 Добро пожаловать!</h1>
+                    <p class="text-white-50">Отслеживайте свои привычки и достигайте целей</p>
+                </div>
+            </div>
+            
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Всего привычек</h6>
+                                    <h2 class="mb-0 text-primary">@totalHabits</h2>
+                                </div>
+                                <div style="font-size: 3rem; opacity: 0.3;">🎯</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Активных сегодня</h6>
+                                    <h2 class="mb-0 text-success">@activeToday</h2>
+                                </div>
+                                <div style="font-size: 3rem; opacity: 0.3;">✅</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Целей</h6>
+                                    <h2 class="mb-0 text-warning">@totalGoals</h2>
+                                </div>
+                                <div style="font-size: 3rem; opacity: 0.3;">🏆</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-2">Текущая серия</h6>
+                                    <h2 class="mb-0 text-info">@currentStreak 🔥</h2>
+                                </div>
+                                <div style="font-size: 3rem; opacity: 0.3;">🔥</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Habits List -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>📋 Мои привычки</span>
+                            <a href="habits/create" class="btn btn-light btn-sm">+ Добавить</a>
+                        </div>
+                        <div class="card-body">
+                            @if (habits == null)
+                            {
+                                <div class="text-center py-5">
+                                    <div class="loading-spinner"></div>
+                                    <p class="text-muted mt-3">Загрузка...</p>
+                                </div>
+                            }
+                            else if (!habits.Any())
+                            {
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">🎯</div>
+                                    <div class="empty-state-text">У вас пока нет привычек</div>
+                                    <p class="text-muted">Создайте первую привычку и начните отслеживать прогресс!</p>
+                                    <a href="habits/create" class="btn btn-primary">Создать привычку</a>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var habit in habits.Take(5))
+                                {
+                                    <div class="habit-card">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h5 class="habit-title">@habit.Name</h5>
+                                                <p class="habit-description">@habit.Description</p>
+                                                <div class="habit-stats">
+                                                    <span class="streak-counter">
+                                                        🔥 @habit.CurrentStreak дней
+                                                    </span>
+                                                    <span class="text-muted">
+                                                        Цель: @habit.TargetStreak дней
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="progress" style="width: 100px;">
+                                                <div class="progress-bar" 
+                                                     style="width: @(habit.CurrentStreak >= habit.TargetStreak ? 100 : (habit.CurrentStreak * 100 / habit.TargetStreak))%">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            📊 Прогресс недели
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Понедельник</span>
+                                    <span class="badge bg-success">5/5</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Вторник</span>
+                                    <span class="badge bg-success">4/5</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: 80%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Среда</span>
+                                    <span class="badge bg-warning">3/5</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: 60%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Habit> habits = new();
+    private int totalHabits = 0;
+    private int activeToday = 0;
+    private int totalGoals = 0;
+    private int currentStreak = 0;
+    private bool isLoading = true;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthService.IsAuthenticated)
+        {
+            await LoadData();
+        }
+        isLoading = false;
+    }
+    
+    private async Task LoadData()
+    {
+        try
+        {
+            // Загрузка привычек
+            habits = await Http.GetFromJsonAsync<List<Habit>>("api/habits") ?? new List<Habit>();
+            totalHabits = habits.Count;
+            
+            // Здесь можно добавить загрузку целей и другой статистики
+            totalGoals = 0; // await Http.GetFromJsonAsync<int>("api/goals/count");
+            currentStreak = habits.Sum(h => h.CurrentStreak);
+            activeToday = habits.Count(h => h.CurrentStreak > 0);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка загрузки данных: {ex.Message}");
+        }
+    }
+}
