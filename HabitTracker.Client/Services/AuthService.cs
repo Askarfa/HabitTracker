@@ -15,17 +15,13 @@ public class AuthService
         _js = js;
     }
 
-    // ← Асинхронная инициализация — загружаем токен из localStorage
     public async Task InitializeAsync()
     {
         try
         {
             _token = await _js.InvokeAsync<string>("localStorage.getItem", "authToken");
-
             if (!string.IsNullOrEmpty(_token))
-            {
                 Console.WriteLine("✅ Токен загружен из localStorage");
-            }
         }
         catch (Exception ex)
         {
@@ -37,34 +33,22 @@ public class AuthService
     public void SetToken(string token)
     {
         _token = token;
-
-        // Сохраняем в localStorage
         _ = _js.InvokeVoidAsync("localStorage.setItem", "authToken", token);
-
         Console.WriteLine("✅ Токен сохранён");
-
-        // Уведомляем компоненты об изменении
         OnAuthStateChanged?.Invoke();
     }
 
-    public string? GetToken()
-    {
-        return _token;
-    }
+    public string? GetToken() => _token;
 
     public bool IsAuthenticated => !string.IsNullOrEmpty(_token);
 
-    // ← Событие для уведомления компонентов об изменении авторизации
     public event Action? OnAuthStateChanged;
 
     public void Logout()
     {
         _token = null;
-
         _ = _js.InvokeVoidAsync("localStorage.removeItem", "authToken");
-
         Console.WriteLine("🚪 Пользователь вышел");
-
         OnAuthStateChanged?.Invoke();
     }
 
@@ -72,8 +56,6 @@ public class AuthService
     {
         try
         {
-            Console.WriteLine($"🔐 Вход: {email}");
-
             var response = await _http.PostAsJsonAsync("/api/auth/login", new
             {
                 Email = email.Trim(),
@@ -83,25 +65,17 @@ public class AuthService
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-
                 if (result != null && !string.IsNullOrEmpty(result.Token))
                 {
                     SetToken(result.Token);
-                    Console.WriteLine("✅ Вход успешен");
                     return true;
                 }
             }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"❌ Ошибка входа: {error}");
-            }
-
             return false;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Ошибка: {ex.Message}");
+            Console.WriteLine($"❌ Ошибка входа: {ex.Message}");
             return false;
         }
     }
@@ -110,8 +84,6 @@ public class AuthService
     {
         try
         {
-            Console.WriteLine($"📝 Регистрация: {email}");
-
             var response = await _http.PostAsJsonAsync("/api/auth/register", new
             {
                 Email = email.Trim(),
@@ -121,25 +93,17 @@ public class AuthService
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-
                 if (result != null && !string.IsNullOrEmpty(result.Token))
                 {
                     SetToken(result.Token);
-                    Console.WriteLine("✅ Регистрация успешна");
                 }
-
                 return result;
             }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"❌ Ошибка регистрации: {error}");
-                return null;
-            }
+            return null;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Ошибка: {ex.Message}");
+            Console.WriteLine($"❌ Ошибка регистрации: {ex.Message}");
             return null;
         }
     }
