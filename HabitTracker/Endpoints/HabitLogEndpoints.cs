@@ -1,6 +1,9 @@
-﻿using HabitTracker.Services;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using HabitTracker.Data;
 using HabitTracker.Entities;
-using System.Security.Claims;
+using HabitTracker.Repositories;
 
 namespace HabitTracker.Endpoints;
 
@@ -8,93 +11,81 @@ public static class HabitLogEndpoints
 {
     public static void MapHabitLogEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/habit-logs").WithTags("HabitLogs");
+        var group = app.MapGroup("/api/habit-logs").RequireAuthorization();
 
-        group.MapGet("/", GetAllHabitLogs);
-        group.MapGet("/{id:guid}", GetHabitLogById);
-        group.MapGet("/habit/{habitId:guid}", GetLogsByHabitId);
-        group.MapGet("/user/{userId}", GetLogsByUserId);
-        group.MapPost("/", CreateHabitLog);
-        group.MapPost("/log", LogHabit);
-        group.MapPost("/{habitId:guid}/complete", MarkHabitAsCompleted); // ✅ НОВЫЙ!
-        group.MapPut("/{id:guid}", UpdateHabitLog);
-        group.MapDelete("/{id:guid}", DeleteHabitLog);
+        group.MapGet("/habit/{habitId:guid}", async (
+            Guid habitId,
+            ClaimsPrincipal user,
+            HabitLogRepository repository) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
+
+            var logs = await repository.GetByHabitIdAsync(habitId);
+            return Results.Ok(logs);
+        })
+        .WithName("GetHabitLogs");
+
+        group.MapPost("/{habitId:guid}/complete", async (
+            Guid habitId,
+            ClaimsPrincipal user,
+            UserManager<AppUser> userManager,
+            HabitRepository habitRepository,
+            HabitLogRepository logRepository) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
+
+            var habit = await habitRepository.GetByIdAsync(habitId);
+            if (habit == null)
+                return Results.NotFound();
+
+            var today = DateTime.UtcNow.Date;
+
+            var existingLog = await logRepository.GetByHabitIdAndDateAsync(habitId, today);
+            if (existingLog != null)
+                return Results.BadRequest(new { message = "Привычка уже отмечена сегодня" });
+
+            var log = new HabitLog
+            {
+                Id = Guid.NewGuid(),
+                HabitId = habitId,
+                UserId = userId,
+                Date = DateTime.UtcNow.Date,
+                IsCompleted = true,
+                Note = "Выполнено!",
+                LoggedAt = DateTime.UtcNow
+            };
+
+            await logRepository.AddAsync(log);
+
+            habit.CurrentStreak++;
+            await habitRepository.UpdateAsync(habit);
+
+            return Results.Ok(new
+            {
+                habit.Id,
+                habit.Name,
+                habit.CurrentStreak,
+                habit.TargetStreak,
+                message = "Привычка отмечена как выполненная!"
+            });
+        })
+        .WithName("CompleteHabit");
+
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            HabitLogRepository repository) =>
+        {
+            var log = await repository.GetByIdAsync(id);
+            if (log == null)
+                return Results.NotFound();
+
+            await repository.DeleteAsync(id);
+            return Results.NoContent();
+        })
+        .WithName("DeleteHabitLog");
     }
-
-    private static async Task<IResult> GetAllHabitLogs(IHabitLogService service)
-    {
-        var logs = await service.GetAllAsync();
-        return Results.Ok(logs);
-    }
-
-    private static async Task<IResult> GetHabitLogById(Guid id, IHabitLogService service)
-    {
-        var log = await service.GetByIdAsync(id);
-        return log is null ? Results.NotFound() : Results.Ok(log);
-    }
-
-    private static async Task<IResult> GetLogsByHabitId(Guid habitId, IHabitLogService service)
-    {
-        var logs = await service.GetByHabitIdAsync(habitId);
-        return Results.Ok(logs);
-    }
-
-    private static async Task<IResult> GetLogsByUserId(string userId, IHabitLogService service)
-    {
-        var logs = await service.GetByUserIdAsync(userId);
-        return Results.Ok(logs);
-    }
-
-    private static async Task<IResult> CreateHabitLog(HabitLog log, IHabitLogService service)
-    {
-        var created = await service.CreateAsync(log);
-        return Results.Created($"/api/habit-logs/{created.Id}", created);
-    }
-
-    private static async Task<IResult> LogHabit(HabitLogRequest request, IHabitLogService service)
-    {
-        var log = await service.LogHabitAsync(request.HabitId, request.UserId, request.Completed, request.Notes);
-        return Results.Created($"/api/habit-logs/{log.Id}", log);
-    }
-
-    private static async Task<IResult> MarkHabitAsCompleted(
-        Guid habitId,
-        IHabitLogService habitLogService,
-        ClaimsPrincipal user)
-    {
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (string.IsNullOrEmpty(userId))
-            return Results.Unauthorized();
-
-        var log = await habitLogService.LogHabitAsync(habitId, userId, true, null);
-        return Results.Ok(log);
-    }
-
-    private static async Task<IResult> UpdateHabitLog(Guid id, HabitLog log, IHabitLogService service)
-    {
-        if (!await service.ExistsAsync(id))
-            return Results.NotFound();
-
-        log.Id = id;
-        await service.UpdateAsync(log);
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> DeleteHabitLog(Guid id, IHabitLogService service)
-    {
-        if (!await service.ExistsAsync(id))
-            return Results.NotFound();
-
-        await service.DeleteAsync(id);
-        return Results.NoContent();
-    }
-}
-
-public class HabitLogRequest
-{
-    public Guid HabitId { get; set; }
-    public string UserId { get; set; } = string.Empty;
-    public bool Completed { get; set; }
-    public string? Notes { get; set; }
 }

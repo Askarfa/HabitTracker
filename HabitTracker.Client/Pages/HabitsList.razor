@@ -7,16 +7,27 @@
 @inject IJSRuntime JS
 @inject AuthService Auth
 
-<h3>Мои привычки</h3>
+<PageTitle>Все привычки</PageTitle>
 
-@if (habits == null)
+<h3>📋 Мои привычки</h3>
+
+@if (!Auth.IsAuthenticated)
 {
-    <p><span class="spinner-border spinner-border-sm"></span> Загрузка...</p>
+    <div class="alert alert-info">
+        <p>🔐 Пожалуйста, <a href="/login">войдите</a> или <a href="/register">зарегистрируйтесь</a> чтобы управлять привычками.</p>
+    </div>
+}
+else if (habits == null)
+{
+    <p><span class="spinner-border spinner-border-sm text-primary"></span> Загрузка привычек...</p>
 }
 else if (habits.Count == 0)
 {
     <div class="alert alert-info">
-        У вас пока нет привычек. <a href="/habits/create">Создайте первую!</a>
+        <p>🎉 У вас пока нет привычек!</p>
+        <a href="/habits/create" class="btn btn-success">
+            <span class="bi bi-plus-circle"></span> Создать первую привычку
+        </a>
     </div>
 }
 else
@@ -35,11 +46,11 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var habit in habits)
+                @foreach (var habit in habits.OrderBy(h => h.IsCompletedToday).ThenBy(h => h.Name))
                 {
-                    <tr>
+                    <tr class="@(habit.IsCompletedToday ? "table-success" : "")">
                         <td><strong>@habit.Name</strong></td>
-                        <td class="text-muted small">@habit.Description</td>
+                        <td class="text-muted small">@(string.IsNullOrEmpty(habit.Description) ? "-" : habit.Description)</td>
                         <td>@GetFrequencyText(habit.Frequency)</td>
                         <td>@habit.TargetStreak дн.</td>
                         <td>
@@ -55,19 +66,33 @@ else
                             else
                             {
                                 <button class="btn btn-sm btn-outline-success"
-                                        @onclick="() => MarkAsCompleted(habit.Id)">
-                                    <span class="bi bi-check-circle"></span>
+                                        @onclick="() => MarkAsCompleted(habit.Id)"
+                                        disabled="@isCompleting"
+                                        title="Отметить выполненным">
+                                    @if (isCompleting && completingId == habit.Id)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    else
+                                    {
+                                        <span>✅</span>
+                                    }
                                 </button>
                             }
                         </td>
                         <td>
-                            <a href="/habits/edit/@habit.Id" class="btn btn-sm btn-outline-primary me-1">
-                                <span class="bi bi-pencil"></span>
-                            </a>
-                            <button class="btn btn-sm btn-outline-danger"
-                                    @onclick="() => DeleteHabit(habit.Id)">
-                                <span class="bi bi-trash"></span>
-                            </button>
+                            <div class="btn-group" role="group">
+                                <a href="/habits/edit/@habit.Id"
+                                   class="btn btn-sm btn-primary"
+                                   title="Редактировать">
+                                    ✏️ Изм.
+                                </a>
+                                <button class="btn btn-sm btn-danger"
+                                        @onclick="() => DeleteHabit(habit.Id)"
+                                        title="Удалить">
+                                    🗑️ Удал.
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 }
@@ -80,14 +105,22 @@ else
     <a href="/habits/create" class="btn btn-success">
         <span class="bi bi-plus-circle"></span> Добавить привычку
     </a>
+    <a href="/" class="btn btn-outline-secondary ms-2">
+        <span class="bi bi-house-door"></span> На главную
+    </a>
 </div>
 
 @code {
     private List<HabitModel>? habits;
+    private bool isCompleting = false;
+    private Guid completingId;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadHabits();
+        if (Auth.IsAuthenticated)
+        {
+            await LoadHabits();
+        }
     }
 
     private async Task LoadHabits()
@@ -104,9 +137,20 @@ else
             }
 
             var response = await Http.SendAsync(request);
+
             if (response.IsSuccessStatusCode)
             {
                 habits = await response.Content.ReadFromJsonAsync<List<HabitModel>>();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Auth.Logout();
+                Navigation.NavigateTo("/login", forceLoad: true);
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Ошибка загрузки: {response.StatusCode} - {error}");
             }
         }
         catch (Exception ex)
@@ -117,6 +161,10 @@ else
 
     private async Task MarkAsCompleted(Guid id)
     {
+        isCompleting = true;
+        completingId = id;
+        StateHasChanged();
+
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/habit-logs/{id}/complete");
@@ -129,20 +177,31 @@ else
             }
 
             var response = await Http.SendAsync(request);
+
             if (response.IsSuccessStatusCode)
             {
                 await LoadHabits();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                Auth.Logout();
+                Navigation.NavigateTo("/login", forceLoad: true);
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Ошибка: {ex.Message}");
         }
+        finally
+        {
+            isCompleting = false;
+            StateHasChanged();
+        }
     }
 
     private async Task DeleteHabit(Guid id)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", "Удалить эту привычку?");
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "❌ Удалить эту привычку?\nЭто действие нельзя отменить.");
 
         if (confirmed)
         {
@@ -158,9 +217,20 @@ else
                 }
 
                 var response = await Http.SendAsync(request);
+
                 if (response.IsSuccessStatusCode)
                 {
                     await LoadHabits();
+                }
+                else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Auth.Logout();
+                    Navigation.NavigateTo("/login", forceLoad: true);
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"Ошибка удаления: {response.StatusCode} - {error}");
                 }
             }
             catch (Exception ex)
@@ -174,10 +244,10 @@ else
     {
         return frequency switch
         {
-            0 => "Ежедневно",
-            1 => "Еженедельно",
-            2 => "Ежемесячно",
-            _ => "Неизвестно"
+            0 => "📅 Ежедневно",
+            1 => "🗓️ Еженедельно",
+            2 => "📆 Ежемесячно",
+            _ => "❓ Неизвестно"
         };
     }
 }

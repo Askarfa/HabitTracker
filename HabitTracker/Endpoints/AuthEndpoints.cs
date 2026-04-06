@@ -13,45 +13,56 @@ public static class AuthEndpoints
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/auth/register", async (
-            RegisterDto dto,
-            UserManager<AppUser> userManager) =>
+            [FromBody] RegisterDto dto,
+            UserManager<AppUser> userManager,
+            IConfiguration config) =>
         {
-            var existingUser = await userManager.FindByEmailAsync(dto.Email);
+            var email = dto.Email?.Trim() ?? "";
+            var password = dto.Password?.Trim() ?? "";
+
+            var existingUser = await userManager.FindByEmailAsync(email);
             if (existingUser != null)
                 return Results.BadRequest(new { message = "Пользователь с таким email уже существует" });
 
             var user = new AppUser
             {
-                UserName = dto.Email,
-                Email = dto.Email,
+                UserName = email,
+                Email = email,
                 RegisteredAt = DateTime.UtcNow
             };
 
-            var result = await userManager.CreateAsync(user, dto.Password);
+            var result = await userManager.CreateAsync(user, password);
 
             if (!result.Succeeded)
                 return Results.BadRequest(new { errors = result.Errors });
 
-            return Results.Created($"/api/users/{user.Id}", new
+            var token = GenerateJwtToken(user, config);
+
+            return Results.Ok(new
             {
-                user.Id,
-                user.Email,
-                user.UserName,
+                token,
+                tokenType = "Bearer",
+                userId = user.Id,
+                email = user.Email,
+                userName = user.UserName,
                 message = "Пользователь успешно зарегистрирован"
             });
         })
         .WithName("Register");
 
         app.MapPost("/api/auth/login", async (
-            LoginDto dto,
+            [FromBody] LoginDto dto,
             UserManager<AppUser> userManager,
             IConfiguration config) =>
         {
-            var user = await userManager.FindByEmailAsync(dto.Email);
+            var email = dto.Email?.Trim() ?? "";
+            var password = dto.Password?.Trim() ?? "";
+
+            var user = await userManager.FindByEmailAsync(email);
             if (user == null)
                 return Results.Unauthorized();
 
-            var isValidPassword = await userManager.CheckPasswordAsync(user, dto.Password);
+            var isValidPassword = await userManager.CheckPasswordAsync(user, password);
             if (!isValidPassword)
                 return Results.Unauthorized();
 
@@ -110,12 +121,12 @@ public static class AuthEndpoints
 
         var claims = new[]
         {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
-        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        new Claim(ClaimTypes.NameIdentifier, user.Id),
-        new Claim(ClaimTypes.Email, user.Email ?? "")
-    };
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id),
+            new Claim(ClaimTypes.Email, user.Email ?? "")
+        };
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

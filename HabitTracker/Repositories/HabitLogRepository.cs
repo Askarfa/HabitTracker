@@ -1,37 +1,50 @@
-﻿using HabitTracker.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using HabitTracker.Data;
 using HabitTracker.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace HabitTracker.Repositories;
 
-public class HabitLogRepository : Repository<HabitLog>, IHabitLogRepository
+public class HabitLogRepository
 {
-    public HabitLogRepository(ApplicationDbContext context) : base(context)
+    private readonly ApplicationDbContext _context;
+
+    public HabitLogRepository(ApplicationDbContext context)
     {
+        _context = context;
     }
 
     public async Task<IEnumerable<HabitLog>> GetByHabitIdAsync(Guid habitId)
     {
-        return await _dbSet
-            .Where(l => l.HabitId == habitId)
-            .OrderByDescending(l => l.Date)
+        return await _context.HabitLogs
+            .Where(hl => hl.HabitId == habitId)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<HabitLog>> GetByUserIdAsync(string userId)
+    public async Task<HabitLog?> GetByHabitIdAndDateAsync(Guid habitId, DateTime date)
     {
-        return await _dbSet
-            .Include(l => l.Habit)
-            .Where(l => l.Habit.UserId == userId)
-            .OrderByDescending(l => l.Date)
-            .ToListAsync();
+        return await _context.HabitLogs
+            .FirstOrDefaultAsync(hl => hl.HabitId == habitId
+    && hl.Date.Date == date.Date);
     }
 
-    public async Task<HabitLog?> GetLatestByHabitIdAsync(Guid habitId)
+    public async Task<HabitLog?> GetByIdAsync(Guid id)
     {
-        return await _dbSet
-            .Where(l => l.HabitId == habitId)
-            .OrderByDescending(l => l.Date)
-            .FirstOrDefaultAsync();
+        return await _context.HabitLogs.FindAsync(id);
+    }
+
+    public async Task AddAsync(HabitLog log)
+    {
+        await _context.HabitLogs.AddAsync(log);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var log = await _context.HabitLogs.FindAsync(id);
+        if (log != null)
+        {
+            _context.HabitLogs.Remove(log);
+            await _context.SaveChangesAsync();
+        }
     }
 }

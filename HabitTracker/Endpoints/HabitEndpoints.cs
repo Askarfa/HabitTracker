@@ -1,6 +1,9 @@
 ﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using HabitTracker.Data;
 using HabitTracker.Entities;
-using HabitTracker.Services;
+using HabitTracker.Repositories;
 
 namespace HabitTracker.Endpoints;
 
@@ -8,119 +11,105 @@ public static class HabitEndpoints
 {
     public static void MapHabitEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/habits").WithTags("Habits");
+        var group = app.MapGroup("/api/habits").RequireAuthorization();
 
         group.MapGet("/", async (
-            IHabitService service,
-            IHabitLogService logService,
-            ClaimsPrincipal user) =>
+            ClaimsPrincipal user,
+            HabitRepository repository) =>
         {
-            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
-            var habits = await service.GetByUserIdAsync(userId);
-
-            foreach (var habit in habits)
-            {
-                var logs = await logService.GetByHabitIdAsync(habit.Id);
-                var today = DateTime.UtcNow.Date;
-
-                habit.IsCompletedToday = logs.Any(l =>
-                    l.Date.Date == today && l.IsCompleted);
-
-                habit.CurrentStreak = CalculateCurrentStreak(logs);
-                habit.LastCompletedAt = logs
-                    .Where(l => l.IsCompleted)
-                    .OrderByDescending(l => l.Date)
-                    .FirstOrDefault()?.Date;
-            }
-
+            var habits = await repository.GetAllByUserIdAsync(userId);
             return Results.Ok(habits);
         })
-        .RequireAuthorization()
-        .WithName("GetHabits");
+        .WithName("GetAllHabits");
 
-        group.MapGet("/{id}", async (Guid id, IHabitService service) =>
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            HabitRepository repository) =>
         {
-            var habit = await service.GetByIdAsync(id);
-            return habit is null ? Results.NotFound() : Results.Ok(habit);
+            var habit = await repository.GetByIdAsync(id);
+            if (habit == null)
+                return Results.NotFound();
+
+            return Results.Ok(habit);
         })
         .WithName("GetHabitById");
 
-        group.MapPost("/", async (Habit habit, IHabitService service, ClaimsPrincipal user) =>
+        group.MapPost("/", async (
+            [FromBody] CreateHabitDto dto,
+            ClaimsPrincipal user,
+            HabitRepository repository) =>
         {
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                habit.UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            }
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
 
-            var created = await service.CreateAsync(habit);
-            return Results.Created($"/api/habits/{created.Id}", created);
+            var habit = new Habit
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Name = dto.Name,
+                Description = dto.Description,
+                Frequency = dto.Frequency,
+                TargetStreak = dto.TargetStreak,
+                CurrentStreak = 0,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await repository.AddAsync(habit);
+            return Results.Created($"/api/habits/{habit.Id}", habit);
         })
-        .RequireAuthorization()
         .WithName("CreateHabit");
 
-        group.MapPut("/{id}", async (Guid id, Habit updatedHabit, IHabitService service) =>
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            [FromBody] UpdateHabitDto dto,
+            HabitRepository repository) =>
         {
-            var habit = await service.GetByIdAsync(id);
-            if (habit is null)
+            var habit = await repository.GetByIdAsync(id);
+            if (habit == null)
                 return Results.NotFound();
 
-            habit.Name = updatedHabit.Name;
-            habit.Description = updatedHabit.Description;
-            habit.Frequency = updatedHabit.Frequency;
-            habit.TargetStreak = updatedHabit.TargetStreak;
+            habit.Name = dto.Name;
+            habit.Description = dto.Description;
+            habit.Frequency = dto.Frequency;
+            habit.TargetStreak = dto.TargetStreak;
 
-            await service.UpdateAsync(habit);
-            return Results.NoContent();
+            await repository.UpdateAsync(habit);
+            return Results.Ok(habit);
         })
-        .RequireAuthorization()
         .WithName("UpdateHabit");
 
-        group.MapDelete("/{id}", async (Guid id, IHabitService service) =>
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            HabitRepository repository) =>
         {
-            var habit = await service.GetByIdAsync(id);
-            if (habit is null)
+            var habit = await repository.GetByIdAsync(id);
+            if (habit == null)
                 return Results.NotFound();
 
-            await service.DeleteAsync(id);
+            await repository.DeleteAsync(id);
             return Results.NoContent();
         })
-        .RequireAuthorization()
         .WithName("DeleteHabit");
     }
+}
 
-    private static int CalculateCurrentStreak(IEnumerable<HabitLog> logs)
-    {
-        var completedLogs = logs
-            .Where(l => l.IsCompleted)
-            .OrderByDescending(l => l.Date.Date)
-            .ToList();
+public class CreateHabitDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int Frequency { get; set; }
+    public int TargetStreak { get; set; }
+}
 
-        if (!completedLogs.Any()) return 0;
-
-        int streak = 0;
-        var currentDate = DateTime.UtcNow.Date;
-
-        foreach (var log in completedLogs)
-        {
-            if (log.Date.Date == currentDate)
-            {
-                streak++;
-                currentDate = currentDate.AddDays(-1);
-            }
-            else if (log.Date.Date == currentDate)
-            {
-                currentDate = currentDate.AddDays(-1);
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        return streak;
-    }
+public class UpdateHabitDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int Frequency { get; set; }
+    public int TargetStreak { get; set; }
 }

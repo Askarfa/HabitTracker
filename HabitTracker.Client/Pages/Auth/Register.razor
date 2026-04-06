@@ -18,35 +18,28 @@
         <InputText @bind-Value="registerModel.Password" type="password" class="form-control" />
     </div>
 
-    <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+    <button type="submit" class="btn btn-success">Зарегистрироваться</button>
 </EditForm>
 
-<p><a href="/login">Уже есть аккаунт? Войти</a></p>
+<p><a href="/login" class="text-decoration-none">Уже есть аккаунт? Войти</a></p>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="alert alert-danger mt-3">@errorMessage</div>
 }
 
-@if (success)
-{
-    <div class="alert alert-success mt-3">Регистрация успешна! Переход к входу...</div>
-}
-
 @code {
     private RegisterModel registerModel = new();
     private string? errorMessage;
-    private bool success;
 
     private async Task HandleRegister()
     {
-        var success = await Auth.Register(registerModel.Email, registerModel.Password);
+        var result = await Auth.Register(registerModel.Email, registerModel.Password);
 
-        if (success)
+        if (result != null && !string.IsNullOrEmpty(result.Token))
         {
-            this.success = true;
-            await Task.Delay(2000);
-            Navigation.NavigateTo("/login");
+          
+            Navigation.NavigateTo("/habits");
         }
         else
         {

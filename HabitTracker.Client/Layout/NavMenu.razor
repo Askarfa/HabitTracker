@@ -1,6 +1,10 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using HabitTracker.Client.Services
+@inject AuthService Auth
+@inject NavigationManager Navigation
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">HabitTracker.Client</a>
+        <a class="navbar-brand" href="">🎯 HabitTracker</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -11,67 +15,64 @@
     <nav class="flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door"></span> Главная
             </NavLink>
         </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-
-        <hr class="my-2" />
-
-        <!-- Привычки -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="habits">
-                <span class="bi bi-check2-square" aria-hidden="true"></span> Привычки
+                <span class="bi bi-list-check"></span> Все привычки
             </NavLink>
         </div>
-
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="habits/create">
+                <span class="bi bi-plus-circle"></span> Добавить привычку
+            </NavLink>
+        </div>
         <hr class="my-2" />
 
-        <!-- Авторизация - ПРОСТАЯ ВЕРСИЯ -->
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Вход
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="register">
-                <span class="bi bi-person-plus" aria-hidden="true"></span> Регистрация
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <a class="nav-link" href="/" @onclick="DoLogout">
-                <span class="bi bi-box-arrow-right" aria-hidden="true"></span> Выйти
-            </a>
-        </div>
+        @if (!Auth.IsAuthenticated)
+        {
+            <div class="nav-item px-3"><small class="text-muted">👋 Гость</small></div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="bi bi-box-arrow-in-right"></span> Вход
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="register">
+                    <span class="bi bi-person-plus"></span> Регистрация
+                </NavLink>
+            </div>
+        }
+        else
+        {
+            <div class="nav-item px-3"><small class="text-success">✅ Авторизован</small></div>
+            <div class="nav-item px-3">
+                <a class="nav-link" href="#" @onclick="HandleLogout">
+                    <span class="bi bi-box-arrow-right"></span> Выйти
+                </a>
+            </div>
+        }
     </nav>
 </div>
 
 @code {
     private bool collapseNavMenu = true;
-
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 
-    private void ToggleNavMenu()
+    private void HandleLogout()
     {
-        collapseNavMenu = !collapseNavMenu;
+        Auth.Logout();
+        Navigation.NavigateTo("/", forceLoad: true);
     }
 
-    private void DoLogout()
+    protected override void OnInitialized()
     {
-        // Просто переходим на главную
-        // Пользователь может войти снова
+        Auth.OnAuthStateChanged += StateHasChanged;
+    }
+    public void Dispose()
+    {
+        Auth.OnAuthStateChanged -= StateHasChanged;
     }
 }

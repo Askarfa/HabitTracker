@@ -2,7 +2,6 @@
 @using HabitTracker.Client.Services
 @inject AuthService Auth
 @inject NavigationManager Navigation
-@inject HttpClient Http
 
 <h3>Вход</h3>
 
@@ -41,35 +40,15 @@
 
     private async Task HandleLogin()
     {
-        try
-        {
-            var response = await Http.PostAsJsonAsync("/api/auth/login", new
-            {
-                Email = loginModel.Email,
-                Password = loginModel.Password
-            });
+        var success = await Auth.Login(loginModel.Email, loginModel.Password);
 
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (result != null && !string.IsNullOrEmpty(result.Token))
-                {
-                    Auth.SetToken(result.Token);
-                    Navigation.NavigateTo("/habits");
-                }
-                else
-                {
-                    errorMessage = "Неверный email или пароль";
-                }
-            }
-            else
-            {
-                errorMessage = "Неверный email или пароль";
-            }
-        }
-        catch (Exception ex)
+        if (success)
         {
-            errorMessage = $"Ошибка: {ex.Message}";
+            Navigation.NavigateTo("/habits");
+        }
+        else
+        {
+            errorMessage = "Неверный email или пароль";
         }
     }
 
@@ -77,11 +56,5 @@
     {
         public string Email { get; set; } = "";
         public string Password { get; set; } = "";
-    }
-
-    public class LoginResponse
-    {
-        public string Token { get; set; } = "";
-        public string Email { get; set; } = "";
     }
 }
