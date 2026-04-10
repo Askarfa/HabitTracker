@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Microsoft.JSInterop;
 
 namespace HabitTracker.Client.Services;
@@ -20,99 +21,94 @@ public class AuthService
         try
         {
             _token = await _js.InvokeAsync<string>("localStorage.getItem", "authToken");
+
+            // ← ДОБАВЬТЕ ЭТО: устанавливаем токен при инициализации!
             if (!string.IsNullOrEmpty(_token))
-                Console.WriteLine("✅ Токен загружен из localStorage");
+            {
+                _http.DefaultRequestHeaders.Authorization =
+                    new AuthenticationHeaderValue("Bearer", _token);
+            }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Ошибка загрузки токена: {ex.Message}");
-            _token = null;
-        }
+        catch { _token = null; }
+        OnAuthStateChanged?.Invoke();
     }
 
-    public void SetToken(string token)
+    public async Task SetToken(string token)
     {
         _token = token;
-        _ = _js.InvokeVoidAsync("localStorage.setItem", "authToken", token);
-        Console.WriteLine("✅ Токен сохранён");
+        await _js.InvokeVoidAsync("localStorage.setItem", "authToken", token);
+
+        // ← ДОБАВЬТЕ ЭТО: добавляем токен к запросам!
+        _http.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", token);
+
         OnAuthStateChanged?.Invoke();
     }
-
-    public string? GetToken() => _token;
 
     public bool IsAuthenticated => !string.IsNullOrEmpty(_token);
-
+    public string? GetToken() => _token;
     public event Action? OnAuthStateChanged;
 
-    public void Logout()
+    public async Task Logout()
     {
         _token = null;
-        _ = _js.InvokeVoidAsync("localStorage.removeItem", "authToken");
-        Console.WriteLine("🚪 Пользователь вышел");
+        await _js.InvokeVoidAsync("localStorage.removeItem", "authToken");
+
+        // ← ДОБАВЬТЕ ЭТО: убираем токен из запросов!
+        _http.DefaultRequestHeaders.Authorization = null;
+
         OnAuthStateChanged?.Invoke();
     }
 
-    public async Task<bool> Login(string email, string password)
+    public async Task<(bool Success, string? Error)> Login(string email, string password)
     {
         try
         {
-            var response = await _http.PostAsJsonAsync("/api/auth/login", new
-            {
-                Email = email.Trim(),
-                Password = password
-            });
-
+            var response = await _http.PostAsJsonAsync("/api/auth/login", new { email, password });
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (result != null && !string.IsNullOrEmpty(result.Token))
+                if (result?.Token != null)
                 {
-                    SetToken(result.Token);
-                    return true;
+                    await SetToken(result.Token);  // ← Здесь вызывается SetToken с заголовком!
+                    return (true, null);
                 }
             }
-            return false;
+            return (false, "Неверный email или пароль");
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"❌ Ошибка входа: {ex.Message}");
-            return false;
+            return (false, "Ошибка сети");
         }
     }
 
-    public async Task<LoginResponse?> Register(string email, string password)
+    public async Task<(bool Success, string? Error)> Register(string email, string password)
     {
         try
         {
-            var response = await _http.PostAsJsonAsync("/api/auth/register", new
-            {
-                Email = email.Trim(),
-                Password = password
-            });
-
+            var response = await _http.PostAsJsonAsync("/api/auth/register", new { email, password });
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (result != null && !string.IsNullOrEmpty(result.Token))
+                if (result?.Token != null)
                 {
-                    SetToken(result.Token);
+                    await SetToken(result.Token);  // ← Здесь вызывается SetToken с заголовком!
+                    return (true, null);
                 }
-                return result;
             }
-            return null;
+            return (false, "Ошибка регистрации");
         }
-        catch (Exception ex)
+        catch
         {
-            Console.WriteLine($"❌ Ошибка регистрации: {ex.Message}");
-            return null;
+            return (false, "Ошибка сети");
         }
     }
 }
 
 public class LoginResponse
 {
-    public string Token { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string UserId { get; set; } = string.Empty;
-    public string UserName { get; set; } = string.Empty;
+    public string Token { get; set; } = "";
+    public string Email { get; set; } = "";
+    public string UserId { get; set; } = "";
+    public string UserName { get; set; } = "";
 }

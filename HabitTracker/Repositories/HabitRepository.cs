@@ -15,9 +15,26 @@ public class HabitRepository
 
     public async Task<IEnumerable<Habit>> GetAllByUserIdAsync(string userId)
     {
-        return await _context.Habits
+        var today = DateTime.UtcNow.Date;
+        var habits = await _context.Habits
             .Where(h => h.UserId == userId)
+            .Select(h => new Habit
+            {
+                Id = h.Id,
+                UserId = h.UserId,
+                Name = h.Name,
+                Description = h.Description,
+                Frequency = h.Frequency,
+                TargetStreak = h.TargetStreak,
+                CurrentStreak = h.CurrentStreak,
+                BestStreak = h.BestStreak,
+                CreatedAt = h.CreatedAt,
+                ArchivedAt = h.ArchivedAt,
+                LastCompletedAt = h.LastCompletedAt,
+                IsCompletedToday = _context.HabitLogs.Any(l => l.HabitId == h.Id && l.Date == today)
+            })
             .ToListAsync();
+        return habits;
     }
 
     public async Task<Habit?> GetByIdAsync(Guid id)

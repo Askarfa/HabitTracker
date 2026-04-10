@@ -15,3 +15,19 @@ public class HabitModel
     public DateTime? LastCompletedAt { get; set; }
     public bool IsCompletedToday { get; set; }
 }
+
+public class CreateHabitDto
+{
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public int Frequency { get; set; }
+    public int TargetStreak { get; set; }
+}
+
+public class UpdateHabitDto
+{
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public int Frequency { get; set; }
+    public int TargetStreak { get; set; }
+}

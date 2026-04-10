@@ -1,55 +1,174 @@
 ﻿@page "/register"
-@using HabitTracker.Client.Services
-@inject AuthService Auth
+@using System.ComponentModel.DataAnnotations
+@inject AuthService AuthService
 @inject NavigationManager Navigation
 
-<h3>Регистрация</h3>
+<PageTitle>Регистрация - HabitTracker</PageTitle>
 
-<EditForm Model="@registerModel" OnValidSubmit="HandleRegister">
-    <DataAnnotationsValidator />
-
-    <div class="mb-3">
-        <label>Email</label>
-        <InputText @bind-Value="registerModel.Email" class="form-control" />
-    </div>
-
-    <div class="mb-3">
-        <label>Пароль</label>
-        <InputText @bind-Value="registerModel.Password" type="password" class="form-control" />
-    </div>
-
-    <button type="submit" class="btn btn-success">Зарегистрироваться</button>
-</EditForm>
-
-<p><a href="/login" class="text-decoration-none">Уже есть аккаунт? Войти</a></p>
-
-@if (!string.IsNullOrEmpty(errorMessage))
+@if (!AuthService.IsAuthenticated)
 {
-    <div class="alert alert-danger mt-3">@errorMessage</div>
+    <div class="yougile-auth">
+        <div class="container d-flex align-items-center justify-content-center min-vh-100 py-5">
+            <div class="auth-card">
+                <div class="text-center mb-4">
+                    <span class="display-3">✨</span>
+                    <h1 class="display-6 fw-bold mt-2">Создать аккаунт</h1>
+                    <p class="text-muted">Начните путь к лучшим привычкам</p>
+                </div>
+
+                <EditForm Model="@model" OnValidSubmit="HandleRegister">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <InputText @bind-Value="model.Email" class="form-control form-control-lg rounded-pill" placeholder="you@example.com" />
+                        <ValidationMessage For="@(() => model.Email)" class="text-danger small" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Пароль</label>
+                        <InputText @bind-Value="model.Password" type="password" class="form-control form-control-lg rounded-pill" placeholder="••••••••" />
+                        <ValidationMessage For="@(() => model.Password)" class="text-danger small" />
+                        <small class="text-muted">Минимум 8 символов, буквы и цифры</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Подтвердите пароль</label>
+                        <InputText @bind-Value="model.ConfirmPassword" type="password" class="form-control form-control-lg rounded-pill" placeholder="••••••••" />
+                        <ValidationMessage For="@(() => model.ConfirmPassword)" class="text-danger small" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 btn-lg rounded-pill" disabled="@isLoading">
+                        @(isLoading ? "Регистрация..." : "Зарегистрироваться")
+                    </button>
+                </EditForm>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <div class="alert alert-danger mt-3 text-center small">❌ @error</div>
+                }
+
+                <div class="text-center mt-4">
+                    <p class="text-muted">Уже есть аккаунт? <a href="/login" class="text-primary fw-bold text-decoration-none">Войти</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Если уже авторизован - показываем спиннер -->
+    <div class="d-flex align-items-center justify-content-center min-vh-100">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 text-muted">Перенаправление...</p>
+        </div>
+    </div>
 }
 
+<style>
+    .yougile-auth {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        min-height: 100vh;
+    }
+
+    .auth-card {
+        background: rgba(255,255,255,0.98);
+        backdrop-filter: blur(10px);
+        border-radius: 2rem;
+        padding: 2rem;
+        max-width: 450px;
+        width: 100%;
+        margin: 0 auto;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border: none;
+        transition: all 0.2s;
+    }
+
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(99,102,241,0.4);
+        }
+
+    .form-control:focus {
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 0.2rem rgba(99,102,241,0.25);
+    }
+</style>
+
 @code {
-    private RegisterModel registerModel = new();
-    private string? errorMessage;
+    private RegisterModel model = new();
+    private string? error;
+    private bool isLoading;
+
+    protected override void OnInitialized()
+    {
+        // Если уже авторизован - сразу перенаправляем
+        if (AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+    }
 
     private async Task HandleRegister()
     {
-        var result = await Auth.Register(registerModel.Email, registerModel.Password);
-
-        if (result != null && !string.IsNullOrEmpty(result.Token))
+        // Проверка совпадения паролей
+        if (model.Password != model.ConfirmPassword)
         {
-          
-            Navigation.NavigateTo("/habits");
+            error = "Пароли не совпадают";
+            StateHasChanged();
+            return;
         }
-        else
+
+        isLoading = true;
+        error = null;
+        StateHasChanged();
+
+        try
         {
-            errorMessage = "Ошибка регистрации. Возможно, email уже занят.";
+            var result = await AuthService.Register(model.Email, model.Password);
+
+            if (result.Success)
+            {
+                // Успешная регистрация - перенаправляем на главную
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                error = result.Error ?? "Ошибка регистрации";
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            error = $"Ошибка: {ex.Message}";
+            Console.WriteLine($"❌ Register error: {ex}");
+            StateHasChanged();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
         }
     }
 
     public class RegisterModel
     {
+        [Required(ErrorMessage = "Email обязателен")]
+        [EmailAddress(ErrorMessage = "Введите корректный email")]
         public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Пароль обязателен")]
+        [MinLength(8, ErrorMessage = "Пароль должен содержать минимум 8 символов")]
         public string Password { get; set; } = "";
+
+        [Required(ErrorMessage = "Подтвердите пароль")]
+        [Compare("Password", ErrorMessage = "Пароли не совпадают")]
+        public string ConfirmPassword { get; set; } = "";
     }
 }

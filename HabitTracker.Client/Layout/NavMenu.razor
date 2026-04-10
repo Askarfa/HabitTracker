@@ -1,77 +1,76 @@
 ﻿<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">HabitTracker</a>
+    <div class="container-fluid px-4">
+        <!-- Логотип -->
+        <a class="navbar-brand d-flex align-items-center" href="">
+            <img src="logo.png" alt="HabitTracker" style="width: 32px; height: 32px; margin-right: 10px;" />
+            <span style="font-weight: 700; color: #6366f1; font-size: 1.5rem;">HabitTracker</span>
+        </a>
+
+        <!-- Кнопка для мобильных -->
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
+
+        <!-- Меню -->
         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
                     <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                        📊 Главная
+                        <span class="nav-icon">🏠</span> Главная
                     </NavLink>
                 </li>
                 <li class="nav-item">
                     <NavLink class="nav-link" href="habits">
-                        🎯 Привычки
+                        <span class="nav-icon">📋</span> Привычки
                     </NavLink>
                 </li>
                 <li class="nav-item">
-                    <NavLink class="nav-link" href="goals">
-                        🏆 Цели
+                    <NavLink class="nav-link" href="kanban">
+                        <span class="nav-icon">📊</span> Доска
                     </NavLink>
                 </li>
                 <li class="nav-item">
                     <NavLink class="nav-link" href="stats">
-                        📈 Статистика
+                        <span class="nav-icon">📈</span> Статистика
                     </NavLink>
                 </li>
             </ul>
-            <ul class="navbar-nav">
-                @if (authService.IsAuthenticated)
+
+            <!-- Кнопки справа -->
+            <div class="d-flex align-items-center gap-2">
+                @if (Auth.IsAuthenticated)
                 {
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            👤 @userName
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="profile">Профиль</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="logout" @onclick="Logout">Выйти</a></li>
-                        </ul>
-                    </li>
+                    <button class="btn btn-outline-danger btn-sm px-3" @onclick="Logout">
+                        🚪 Выйти
+                    </button>
                 }
                 else
                 {
-                    <li class="nav-item">
-                        <NavLink class="nav-link" href="login">Вход</NavLink>
-                    </li>
-                    <li class="nav-item">
-                        <NavLink class="nav-link" href="register">Регистрация</NavLink>
-                    </li>
+                    <a href="login" class="btn btn-outline-primary btn-sm px-4" style="min-width: 100px;">
+                        🔐 Вход
+                    </a>
+                    <a href="register" class="btn btn-primary btn-sm px-4">
+                        📝 Регистрация
+                    </a>
                 }
-            </ul>
+            </div>
         </div>
     </div>
 </nav>
 
 @code {
-    [Inject] private AuthService authService { get; set; } = default!;
+    [Inject] private AuthService Auth { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
-    
-    private string userName = "";
-    
+
+    // ← ДОБАВЬТЕ ЭТО:
     protected override void OnInitialized()
     {
-        if (authService.IsAuthenticated)
-        {
-            userName = "Пользователь"; // Можно получить из токена
-        }
+        Auth.OnAuthStateChanged += () => InvokeAsync(StateHasChanged);
     }
-    
+
     private async Task Logout()
     {
-        authService.Logout();
-        Navigation.NavigateTo("/login");
+        await Auth.Logout();
+        Navigation.NavigateTo("/", forceLoad: true);
     }
 }

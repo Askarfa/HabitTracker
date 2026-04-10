@@ -6,75 +6,52 @@
 @inject NavigationManager Navigation
 @inject AuthService Auth
 
-<PageTitle>@(isEdit ? "Редактирование привычки" : "Создание привычки")</PageTitle>
+<PageTitle>@(isEdit ? "Редактирование" : "Создание") привычки</PageTitle>
 
 <h3>@(isEdit ? "✏️ Редактирование" : "➕ Создание")</h3>
 
 @if (isLoading)
 {
-    <p><span class="spinner-border spinner-border-sm text-primary"></span> Загрузка...</p>
+    <div class="text-center">Загрузка...</div>
 }
 else
 {
     <EditForm Model="@habitModel" OnValidSubmit="HandleSubmit">
         <DataAnnotationsValidator />
-
-        <!-- Название -->
         <div class="mb-3">
-            <label class="form-label">Название привычки *</label>
-            <InputText @bind-Value="habitModel.Name" class="form-control" placeholder="Например: Утренняя зарядка" required />
+            <label class="form-label">Название *</label>
+            <InputText @bind-Value="habitModel.Name" class="form-control" required />
             <ValidationMessage For="@(() => habitModel.Name)" class="text-danger" />
         </div>
-
-        <!-- Описание -->
         <div class="mb-3">
             <label class="form-label">Описание</label>
-            <InputTextArea @bind-Value="habitModel.Description" class="form-control" rows="3" placeholder="Краткое описание цели..." />
+            <InputTextArea @bind-Value="habitModel.Description" class="form-control" rows="3" />
         </div>
-
-        <!-- Частота -->
         <div class="mb-3">
-            <label class="form-label">Частота выполнения *</label>
-            <InputSelect @bind-Value="habitModel.Frequency" class="form-select" required>
-                <option value="0">📅 Ежедневно</option>
-                <option value="1">🗓️ Еженедельно</option>
-                <option value="2">📆 Ежемесячно</option>
+            <label class="form-label">Частота</label>
+            <InputSelect @bind-Value="habitModel.Frequency" class="form-select">
+                <option value="0">Ежедневно</option>
+                <option value="1">Еженедельно</option>
+                <option value="2">Ежемесячно</option>
             </InputSelect>
-            <ValidationMessage For="@(() => habitModel.Frequency)" class="text-danger" />
         </div>
-
-        <!-- Цель серии -->
         <div class="mb-3">
-            <label class="form-label">Цель: дней серии</label>
+            <label class="form-label">Цель (дней)</label>
             <InputNumber @bind-Value="habitModel.TargetStreak" class="form-control" min="1" max="365" />
-            <small class="text-muted">Сколько дней подряд хотите выполнять?</small>
+            <ValidationMessage For="@(() => habitModel.TargetStreak)" class="text-danger" />
         </div>
-
-        <!-- Кнопки -->
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                @if (isSaving)
-                {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                }
-                @(isEdit ? "💾 Сохранить изменения" : "✨ Создать привычку")
-            </button>
-            <a href="/habits" class="btn btn-secondary">↩️ Отмена</a>
-        </div>
+        <button type="submit" class="btn btn-primary" disabled="@isSaving">@(isSaving ? "Сохранение..." : (isEdit ? "Сохранить" : "Создать"))</button>
+        <a href="/habits" class="btn btn-secondary">Отмена</a>
     </EditForm>
 }
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
-    <div class="alert alert-danger mt-3">
-        <strong>❌ Ошибка:</strong> @errorMessage
-    </div>
+    <div class="alert alert-danger mt-3">@errorMessage</div>
 }
 
 @code {
-    [Parameter]
-    public Guid? Id { get; set; }
-
+    [Parameter] public Guid? Id { get; set; }
     private HabitModel habitModel = new();
     private bool isEdit = false;
     private bool isLoading = false;
@@ -83,111 +60,98 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (Id.HasValue)
-        {
-            isEdit = true;
-            await LoadHabit(Id.Value);
-        }
+        if (Id.HasValue) { isEdit = true; await LoadHabit(Id.Value); }
     }
 
     private async Task LoadHabit(Guid id)
     {
         isLoading = true;
         StateHasChanged();
-
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/habits/{id}");
-
+            var request = new HttpRequestMessage(HttpMethod.Get, $"/api/habits/{id}");
             var token = Auth.GetToken();
             if (!string.IsNullOrEmpty(token))
-            {
-                request.Headers.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-            }
-
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             var response = await Http.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 var loaded = await response.Content.ReadFromJsonAsync<HabitModel>();
-                if (loaded != null)
-                {
-                    habitModel = loaded;
-                }
+                if (loaded != null) habitModel = loaded;
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Auth.Logout();
-                Navigation.NavigateTo("/login", forceLoad: true);
+                await Auth.Logout();
+                Navigation.NavigateTo("/login");
             }
-            else
-            {
-                errorMessage = "Не удалось загрузить привычку";
-            }
+            else errorMessage = "Не удалось загрузить привычку";
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Ошибка: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+        finally { isLoading = false; StateHasChanged(); }
     }
 
     private async Task HandleSubmit()
     {
         if (string.IsNullOrWhiteSpace(habitModel.Name))
         {
-            errorMessage = "Название обязательно!";
+            errorMessage = "Название обязательно";
             return;
         }
-
+        if (habitModel.TargetStreak < 1) habitModel.TargetStreak = 1;
         isSaving = true;
         errorMessage = null;
         StateHasChanged();
 
         try
         {
-            var url = isEdit ? $"/api/habits/{Id}" : "/api/habits";
-            var method = isEdit ? HttpMethod.Put : HttpMethod.Post;
-
-            using var request = new HttpRequestMessage(method, url);
-            request.Content = JsonContent.Create(habitModel);
-
-            var token = Auth.GetToken();
-            if (!string.IsNullOrEmpty(token))
+            object dto;
+            HttpMethod method;
+            string url;
+            if (isEdit)
             {
-                request.Headers.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-            }
-
-            var response = await Http.SendAsync(request);
-
-            if (response.IsSuccessStatusCode)
-            {
-                Navigation.NavigateTo("/habits");
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                Auth.Logout();
-                Navigation.NavigateTo("/login", forceLoad: true);
+                url = $"/api/habits/{Id}";
+                method = HttpMethod.Put;
+                dto = new UpdateHabitDto
+                    {
+                        Name = habitModel.Name,
+                        Description = habitModel.Description,
+                        Frequency = habitModel.Frequency,
+                        TargetStreak = habitModel.TargetStreak
+                    };
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                errorMessage = $"Ошибка сервера: {errorContent}";
+                url = "/api/habits";
+                method = HttpMethod.Post;
+                dto = new CreateHabitDto
+                    {
+                        Name = habitModel.Name,
+                        Description = habitModel.Description,
+                        Frequency = habitModel.Frequency,
+                        TargetStreak = habitModel.TargetStreak
+                    };
+            }
+
+            var request = new HttpRequestMessage(method, url);
+            request.Content = JsonContent.Create(dto);
+            var token = Auth.GetToken();
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+                Navigation.NavigateTo("/habits");
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                await Auth.Logout();
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Ошибка сервера: {err}";
             }
         }
-        catch (Exception ex)
-        {
-            errorMessage = $"Ошибка: {ex.Message}";
-        }
-        finally
-        {
-            isSaving = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+        finally { isSaving = false; StateHasChanged(); }
     }
 }

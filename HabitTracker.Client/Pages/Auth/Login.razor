@@ -1,103 +1,154 @@
 ﻿@page "/login"
+@using System.ComponentModel.DataAnnotations
 @inject AuthService AuthService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
-<div class="auth-container">
-    <div class="auth-card fade-in">
-        <h1 class="auth-title">С возвращением! 👋</h1>
-        <p class="auth-subtitle">Войдите в свой аккаунт</p>
-        
-        <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
-            <DataAnnotationsValidator />
-            
-            <div class="mb-3">
-                <label class="form-label">Email</label>
-                <InputText @bind-Value="loginModel.Email" 
-                           class="form-control" 
-                           placeholder="you@example.com" />
-                <ValidationMessage For="@(() => loginModel.Email)" />
+<PageTitle>Вход - HabitTracker</PageTitle>
+
+@if (!AuthService.IsAuthenticated)
+{
+    <div class="yougile-auth">
+        <div class="container d-flex align-items-center justify-content-center min-vh-100 py-5">
+            <div class="auth-card">
+                <div class="text-center mb-4">
+                    <span class="display-3">🎯</span>
+                    <h1 class="display-6 fw-bold mt-2">С возвращением!</h1>
+                    <p class="text-muted">Войдите, чтобы продолжить</p>
+                </div>
+
+                <EditForm Model="@model" OnValidSubmit="HandleLogin">
+                    <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <InputText @bind-Value="model.Email" class="form-control form-control-lg rounded-pill" placeholder="you@example.com" />
+                        <ValidationMessage For="@(() => model.Email)" class="text-danger small" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Пароль</label>
+                        <InputText @bind-Value="model.Password" type="password" class="form-control form-control-lg rounded-pill" placeholder="••••••••" />
+                        <ValidationMessage For="@(() => model.Password)" class="text-danger small" />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 btn-lg rounded-pill" disabled="@isLoading">
+                        @(isLoading ? "Вход..." : "🔐 Войти")
+                    </button>
+                </EditForm>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <div class="alert alert-danger mt-3 text-center small">❌ @error</div>
+                }
+
+                <div class="text-center mt-4">
+                    <p class="text-muted">Нет аккаунта? <a href="/register" class="text-primary fw-bold text-decoration-none">Зарегистрироваться</a></p>
+                </div>
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Пароль</label>
-                <InputText @bind-Value="loginModel.Password" 
-                           type="password" 
-                           class="form-control" 
-                           placeholder="••••••••" />
-                <ValidationMessage For="@(() => loginModel.Password)" />
-            </div>
-            
-            <div class="mb-3 form-check">
-                <InputCheckbox @bind-Value="rememberMe" class="form-check-input" id="remember" />
-                <label class="form-check-label" for="remember">Запомнить меня</label>
-            </div>
-            
-            <button type="submit" class="btn btn-primary w-100 mb-3">
-                @isLoading ? <span class="loading-spinner"></span> : "🔐 Войти"
-            </button>
-        </EditForm>
-        
-        @if (!string.IsNullOrEmpty(errorMessage))
-        {
-            <div class="alert alert-danger" role="alert">
-                ❌ @errorMessage
-            </div>
-        }
-        
-        <div class="text-center mt-3">
-            <p class="text-muted">
-                Нет аккаунта? 
-                <a href="register" class="text-decoration-none">Зарегистрироваться</a>
-            </p>
-            <a href="forgot-password" class="text-muted text-decoration-none">
-                Забыли пароль?
-            </a>
         </div>
     </div>
-</div>
+}
+else
+{
+    <!-- Показываем спиннер пока перенаправляем -->
+    <div class="d-flex align-items-center justify-content-center min-vh-100">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+            <p class="mt-3 text-muted">Перенаправление...</p>
+        </div>
+    </div>
+}
+
+<style>
+    .yougile-auth {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+        min-height: 100vh;
+    }
+
+    .auth-card {
+        background: rgba(255,255,255,0.98);
+        backdrop-filter: blur(10px);
+        border-radius: 2rem;
+        padding: 2rem;
+        max-width: 450px;
+        width: 100%;
+        margin: 0 auto;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border: none;
+        transition: all 0.2s;
+    }
+
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(99,102,241,0.4);
+        }
+
+    .form-control:focus {
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 0.2rem rgba(99,102,241,0.25);
+    }
+</style>
 
 @code {
-    private LoginModel loginModel = new();
-    private bool rememberMe = false;
-    private bool isLoading = false;
-    private string errorMessage = "";
-    
+    // ← ВСЁ В ОДНОМ БЛОКЕ!
+
+    private LoginModel model = new();
+    private string? error;
+    private bool isLoading;
+
+    protected override void OnInitialized()
+    {
+        // Если уже авторизован — сразу перенаправляем
+        if (AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+    }
+
     private async Task HandleLogin()
     {
         isLoading = true;
-        errorMessage = "";
-        
+        error = null;
+        StateHasChanged();
+
         try
         {
-            var success = await AuthService.Login(loginModel.Email, loginModel.Password);
-            
-            if (success)
+            var result = await AuthService.Login(model.Email, model.Password);
+
+            if (result.Success)
             {
-                Navigation.NavigateTo("/");
+                Navigation.NavigateTo("/", forceLoad: true);
             }
             else
             {
-                errorMessage = "Неверный email или пароль";
+                error = result.Error ?? "Неверный email или пароль";
+                StateHasChanged();
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Ошибка: {ex.Message}";
+            error = $"Ошибка: {ex.Message}";
+            Console.WriteLine($"❌ Login error: {ex}");
+            StateHasChanged();
         }
         finally
         {
             isLoading = false;
+            StateHasChanged();
         }
     }
-    
+
     public class LoginModel
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "Email обязателен")]
+        [EmailAddress(ErrorMessage = "Введите корректный email")]
         public string Email { get; set; } = "";
-        
-        [Required]
-        [MinLength(6)]
+
+        [Required(ErrorMessage = "Пароль обязателен")]
+        [MinLength(6, ErrorMessage = "Пароль должен содержать минимум 6 символов")]
         public string Password { get; set; } = "";
     }
 }

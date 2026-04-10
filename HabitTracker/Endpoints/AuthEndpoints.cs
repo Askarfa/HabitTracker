@@ -12,29 +12,44 @@ public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
+        // ✅ РЕГИСТРАЦИЯ
         app.MapPost("/api/auth/register", async (
             [FromBody] RegisterDto dto,
             UserManager<AppUser> userManager,
             IConfiguration config) =>
         {
-            var email = dto.Email?.Trim() ?? "";
-            var password = dto.Password?.Trim() ?? "";
+            var email = dto.Email?.Trim().ToLower() ?? "";
+            var password = dto.Password ?? "";
 
+            // Валидация входных данных
+            if (string.IsNullOrWhiteSpace(email) || !email.Contains("@"))
+                return Results.BadRequest(new { error = "Введите корректный email" });
+
+            if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+                return Results.BadRequest(new { error = "Пароль должен содержать минимум 6 символов" });
+
+            // Проверка: не занят ли email
             var existingUser = await userManager.FindByEmailAsync(email);
             if (existingUser != null)
-                return Results.BadRequest(new { message = "Пользователь с таким email уже существует" });
+                return Results.BadRequest(new { error = "Пользователь с таким email уже существует" });
 
+            // Создание пользователя
             var user = new AppUser
             {
                 UserName = email,
                 Email = email,
+                EmailConfirmed = true,  // ← Подтверждаем сразу для простоты
                 RegisteredAt = DateTime.UtcNow
             };
 
             var result = await userManager.CreateAsync(user, password);
 
             if (!result.Succeeded)
-                return Results.BadRequest(new { errors = result.Errors });
+            {
+                // ← ИСПРАВЛЕНИЕ: Возвращаем строку "error", а не массив "errors"
+                var firstError = result.Errors.FirstOrDefault()?.Description ?? "Ошибка регистрации";
+                return Results.BadRequest(new { error = firstError });
+            }
 
             var token = GenerateJwtToken(user, config);
 
@@ -50,13 +65,14 @@ public static class AuthEndpoints
         })
         .WithName("Register");
 
+        // ✅ ВХОД
         app.MapPost("/api/auth/login", async (
             [FromBody] LoginDto dto,
             UserManager<AppUser> userManager,
             IConfiguration config) =>
         {
-            var email = dto.Email?.Trim() ?? "";
-            var password = dto.Password?.Trim() ?? "";
+            var email = dto.Email?.Trim().ToLower() ?? "";
+            var password = dto.Password ?? "";
 
             var user = await userManager.FindByEmailAsync(email);
             if (user == null)
@@ -83,6 +99,7 @@ public static class AuthEndpoints
         })
         .WithName("Login");
 
+        // ✅ ПОЛУЧЕНИЕ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
         app.MapGet("/api/auth/me", async (
             ClaimsPrincipal user,
             UserManager<AppUser> userManager) =>

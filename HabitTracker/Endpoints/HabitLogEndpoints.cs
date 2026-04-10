@@ -75,6 +75,34 @@ public static class HabitLogEndpoints
         })
         .WithName("CompleteHabit");
 
+        group.MapDelete("/{habitId:guid}/cancel", async (
+    Guid habitId,
+    ClaimsPrincipal user,
+    HabitRepository habitRepository,
+    HabitLogRepository logRepository) =>
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Results.Unauthorized();
+
+            var habit = await habitRepository.GetByIdAsync(habitId);
+            if (habit == null || habit.UserId != userId)
+                return Results.NotFound();
+
+            var today = DateTime.UtcNow.Date;
+            var log = await logRepository.GetByHabitIdAndDateAsync(habitId, today);
+            if (log == null)
+                return Results.BadRequest(new { message = "Нет отметки за сегодня" });
+
+            await logRepository.DeleteAsync(log.Id);
+
+            if (habit.CurrentStreak > 0)
+                habit.CurrentStreak--;
+            await habitRepository.UpdateAsync(habit);
+
+            return Results.Ok(new { message = "Выполнение отменено", habit.CurrentStreak });
+        });
+
         group.MapDelete("/{id:guid}", async (
             Guid id,
             HabitLogRepository repository) =>

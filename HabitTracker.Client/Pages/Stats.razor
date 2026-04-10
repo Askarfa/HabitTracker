@@ -1,0 +1,100 @@
+﻿@page "/stats"
+@using HabitTracker.Client.Services
+@using HabitTracker.Client.Models
+@inject HttpClient Http
+@inject AuthService Auth
+
+<PageTitle>Статистика привычек</PageTitle>
+
+<div class="yougile-container">
+    @if (!Auth.IsAuthenticated)
+    {
+        <div class="text-center p-5">
+            <span class="display-3">🔐</span>
+            <h3>Войдите в аккаунт</h3>
+            <a href="/login" class="btn btn-primary">Войти</a>
+        </div>
+    }
+    else if (habits == null)
+    {
+        <div class="text-center py-5">Загрузка...</div>
+    }
+    else if (habits.Count == 0)
+    {
+        <div class="text-center py-5">Нет привычек для статистики.</div>
+    }
+    else
+    {
+        <h1 class="yougile-title mb-4">📈 Статистика привычек</h1>
+        <div class="row g-4">
+            @foreach (var habit in habits)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="yougile-card">
+                        <h5 class="fw-bold">@habit.Name</h5>
+                        <p class="small text-muted">@habit.Description</p>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Текущая серия:</span>
+                            <strong>@habit.CurrentStreak / @habit.TargetStreak</strong>
+                        </div>
+                        <div class="progress mb-2" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: @(Math.Min(100, habit.CurrentStreak * 100 / Math.Max(1, habit.TargetStreak)))%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Лучшая серия:</span>
+                            <strong>@habit.BestStreak</strong>
+                        </div>
+                        <div class="mt-2 text-muted small">
+                            Создана: @habit.CreatedAt.ToString("dd MMM yyyy")
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .yougile-container {
+        padding: 1.5rem;
+        background: #f4f5f7;
+        min-height: 100vh;
+    }
+
+    .yougile-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+
+    .yougile-card {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
+        transition: transform 0.1s;
+    }
+
+        .yougile-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+</style>
+
+@code {
+    private List<HabitModel>? habits;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auth.IsAuthenticated)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/habits");
+            var token = Auth.GetToken();
+            if (!string.IsNullOrEmpty(token))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+                habits = await response.Content.ReadFromJsonAsync<List<HabitModel>>();
+        }
+    }
+}
