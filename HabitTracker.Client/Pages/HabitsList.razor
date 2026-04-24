@@ -41,9 +41,9 @@
             <button class="btn-yougile" @onclick="GoToCreate">➕ Новая привычка</button>
         </div>
 
-        <div class="yougile-board">
-            <!-- Колонка 1: Ожидают выполнения (IsCompletedToday == false) -->
-            <div class="yougile-column">
+        <div class="yougile-board" id="yougile-board">
+            <!-- Колонка 1: Ожидают выполнения -->
+            <div class="yougile-column" data-column="pending">
                 <div class="yougile-column-header">
                     <span class="badge bg-warning me-2">⏳</span>
                     <span>Ожидают выполнения</span>
@@ -52,7 +52,7 @@
                 <div class="yougile-column-body">
                     @foreach (var habit in habits.Where(h => !h.IsCompletedToday).OrderBy(h => h.Name))
                     {
-                        <div class="yougile-card">
+                        <div class="yougile-card" draggable="true" data-habit-id="@habit.Id" data-source-column="pending">
                             <h6 class="fw-bold mb-1">@habit.Name</h6>
                             @if (!string.IsNullOrEmpty(habit.Description))
                             {
@@ -77,8 +77,8 @@
                 </div>
             </div>
 
-            <!-- Колонка 2: Выполнено сегодня (IsCompletedToday == true) -->
-            <div class="yougile-column">
+            <!-- Колонка 2: Выполнено сегодня -->
+            <div class="yougile-column" data-column="completed">
                 <div class="yougile-column-header">
                     <span class="badge bg-success me-2">✅</span>
                     <span>Выполнено сегодня</span>
@@ -87,7 +87,7 @@
                 <div class="yougile-column-body">
                     @foreach (var habit in habits.Where(h => h.IsCompletedToday).OrderBy(h => h.Name))
                     {
-                        <div class="yougile-card completed">
+                        <div class="yougile-card completed" draggable="true" data-habit-id="@habit.Id" data-source-column="completed">
                             <h6 class="fw-bold mb-1 text-muted">@habit.Name</h6>
                             @if (!string.IsNullOrEmpty(habit.Description))
                             {
@@ -101,7 +101,6 @@
                                 <div class="progress-bar bg-success" style="width: @(Math.Min(100, habit.CurrentStreak * 100 / Math.Max(1, habit.TargetStreak)))%"></div>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
-                                <!-- Кнопка отмены ТОЛЬКО здесь -->
                                 <button class="btn btn-sm btn-outline-warning" @onclick="() => CancelCompletion(habit.Id)">
                                     ↩️ Отменить выполнение
                                 </button>
@@ -115,7 +114,7 @@
                 </div>
             </div>
 
-            <!-- Колонка 3: Достигли цели (CurrentStreak >= TargetStreak) -->
+            <!-- Колонка 3: Достигли цели -->
             <div class="yougile-column">
                 <div class="yougile-column-header">
                     <span class="badge bg-info me-2">🏆</span>
@@ -152,7 +151,7 @@
 </div>
 
 <style>
-    /* Ваши существующие стили (можно оставить как есть) */
+    /* стили остаются те же, что были */
     .yougile-container {
         padding: 1.5rem;
         background: #f4f5f7;
@@ -232,7 +231,12 @@
         box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         transition: all 0.2s;
         border: 1px solid #e9ecef;
+        cursor: grab;
     }
+
+        .yougile-card:active {
+            cursor: grabbing;
+        }
 
         .yougile-card:hover {
             transform: translateY(-2px);
@@ -275,10 +279,18 @@
     private List<HabitModel>? habits;
     private bool isCompleting = false;
     private Guid completingId;
+    private DotNetObjectReference<HabitsList>? _dotNetHelper;
 
     protected override async Task OnInitializedAsync()
     {
         if (Auth.IsAuthenticated) await LoadHabits();
+        _dotNetHelper = DotNetObjectReference.Create(this);
+        await InitDragAndDrop();
+    }
+
+    private async Task InitDragAndDrop()
+    {
+        await JS.InvokeVoidAsync("dragDrop.init", _dotNetHelper);
     }
 
     private void GoToCreate() => Navigation.NavigateTo("/habits/create");
@@ -309,14 +321,13 @@
         var response = await Http.SendAsync(request);
         if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.BadRequest)
         {
-            // Локальное обновление
             var habit = habits?.FirstOrDefault(h => h.Id == id);
             if (habit != null && !habit.IsCompletedToday)
             {
                 habit.IsCompletedToday = true;
                 habit.CurrentStreak++;
             }
-            await LoadHabits(); // синхронизация с сервером
+            await LoadHabits();
             StateHasChanged();
         }
         else
@@ -367,4 +378,18 @@
     }
 
     private void EditHabit(Guid id) => Navigation.NavigateTo($"/habits/edit/{id}");
+
+    [JSInvokable]
+    public async Task OnHabitMoved(Guid habitId, string sourceColumn, string targetColumn)
+    {
+        if (sourceColumn == targetColumn) return;
+        if (targetColumn == "completed" && sourceColumn == "pending")
+        {
+            await MarkAsCompleted(habitId);
+        }
+        else if (targetColumn == "pending" && sourceColumn == "completed")
+        {
+            await CancelCompletion(habitId);
+        }
+    }
 }

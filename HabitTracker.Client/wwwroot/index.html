@@ -18,5 +18,25 @@
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        window.dragDrop = {
+            startDrag: function (habitId, sourceColumn, dotNetHelper) {
+                const dragData = { id: habitId, source: sourceColumn };
+                event.dataTransfer.setData("text/plain", JSON.stringify(dragData));
+                event.dataTransfer.effectAllowed = "move";
+                window.dotNetDragDrop = dotNetHelper;
+            },
+            drop: function (targetColumn, event) {
+                event.preventDefault();
+                const rawData = event.dataTransfer.getData("text/plain");
+                if (!rawData) return;
+                const data = JSON.parse(rawData);
+                if (data.source === targetColumn) return;
+                if (window.dotNetDragDrop) {
+                    window.dotNetDragDrop.invokeMethodAsync('OnHabitMoved', data.id, data.source, targetColumn);
+                }
+            }
+        };
+    </script>
 </body>
 </html>

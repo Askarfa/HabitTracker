@@ -1,42 +1,33 @@
 ﻿<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container-fluid px-4">
-        <!-- Логотип -->
-        <a class="navbar-brand d-flex align-items-center" href="">
-            <img src="logo.png" alt="HabitTracker" style="width: 32px; height: 32px; margin-right: 10px;" />
-            <span style="font-weight: 700; color: #6366f1; font-size: 1.5rem;">HabitTracker</span>
+        <!-- Логотип (только текст, без картинки) -->
+        <a class="navbar-brand fw-bold fs-3 text-primary" href="/">
+            🎯 HabitTracker
         </a>
 
-        <!-- Кнопка для мобильных -->
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
 
-        <!-- Меню -->
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                        <span class="nav-icon">🏠</span> Главная
+                    <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                        🏠 Главная
                     </NavLink>
                 </li>
                 <li class="nav-item">
                     <NavLink class="nav-link" href="habits">
-                        <span class="nav-icon">📋</span> Привычки
-                    </NavLink>
-                </li>
-                <li class="nav-item">
-                    <NavLink class="nav-link" href="kanban">
-                        <span class="nav-icon">📊</span> Доска
+                        📋 Доска привычек
                     </NavLink>
                 </li>
                 <li class="nav-item">
                     <NavLink class="nav-link" href="stats">
-                        <span class="nav-icon">📈</span> Статистика
+                        📈 Статистика
                     </NavLink>
                 </li>
             </ul>
 
-            <!-- Кнопки справа -->
             <div class="d-flex align-items-center gap-2">
                 @if (Auth.IsAuthenticated)
                 {
@@ -46,12 +37,8 @@
                 }
                 else
                 {
-                    <a href="login" class="btn btn-outline-primary btn-sm px-4" style="min-width: 100px;">
-                        🔐 Вход
-                    </a>
-                    <a href="register" class="btn btn-primary btn-sm px-4">
-                        📝 Регистрация
-                    </a>
+                    <a href="login" class="btn btn-outline-primary btn-sm px-4">🔐 Вход</a>
+                    <a href="register" class="btn btn-primary btn-sm px-4">📝 Регистрация</a>
                 }
             </div>
         </div>
@@ -62,7 +49,6 @@
     [Inject] private AuthService Auth { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
-    // ← ДОБАВЬТЕ ЭТО:
     protected override void OnInitialized()
     {
         Auth.OnAuthStateChanged += () => InvokeAsync(StateHasChanged);
